@@ -1,0 +1,8 @@
+node_modules
+dist
+*.local
+*.log
+rail.db
+.DS_Store
+.idea/
+.vscode/

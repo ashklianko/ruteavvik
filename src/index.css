@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+
+@theme {
+  --color-*: initial;
+  --color-ground: #0b1417;
+  --color-ground-raised: #101c20;
+  --color-spine: #2c4048;
+  --color-spine-dim: #1b2a30;
+  --color-ink: #e6edea;
+  --color-ink-muted: #8fa3a3;
+  --color-ink-faint: #56696c;
+  --color-early: #5fb7c9;
+  --color-steady: #2c4048;
+  --color-late-1: #d9a441;
+  --color-late-2: #e07b39;
+  --color-late-3: #d84a3b;
+  --color-unknown: #3a4a4f;
+  --color-focus: #9fd3dc;
+
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
