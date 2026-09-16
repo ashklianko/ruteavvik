@@ -278,3 +278,20 @@ body {
     margin-left: 0;
   }
 }
+
+.view {
+  color: var(--color-ink-faint);
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid transparent;
+}
+.view:hover {
+  color: var(--color-ink-muted);
+}
+.view-current {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-spine);
+}
+.marey .marey-train {
+  cursor: pointer;
+  transition: opacity 300ms;
+}

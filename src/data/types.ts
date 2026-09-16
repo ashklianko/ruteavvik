@@ -35,7 +35,11 @@ export interface RawJourneyCall {
   realtime: boolean
   cancellation: boolean
   stopPositionInPattern: number
-  quay: { id: string; publicCode: string | null; stopPlace: { id: string; name: string } } | null
+  quay: {
+    id: string
+    publicCode: string | null
+    stopPlace: { id: string; name: string; latitude?: number | null; longitude?: number | null }
+  } | null
 }
 
 export interface RawJourney {

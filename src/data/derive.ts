@@ -67,6 +67,7 @@ export type TrainState =
       at: string
       index: number
       stopsAway: number
+      standing: boolean
       trail: number[]
       verdict: Verdict
     }
@@ -85,6 +86,7 @@ export function stateOf(train: Train, from: string): TrainState {
     at: call.station,
     index: current,
     stopsAway: fromIndex - current,
+    standing: call.actualDeparture === null && call.actualArrival !== null,
     trail,
     verdict: verdictOf(trail),
   }
@@ -294,25 +296,70 @@ export function officiallyLateCount(trains: Train[], now: number): number {
 
 export const UPSTREAM_ROWS = 8
 
-export function upstreamOrder(trains: Train[], from: string): string[] {
-  const sequences = trains
-    .map((t) => {
-      const i = indexOf(t, from)
-      return i > 0 ? t.calls.slice(0, i).map((c) => c.station).reverse() : []
-    })
-    .filter((s) => s.length > 0)
-    .sort((a, b) => b.length - a.length)
-  const merged: string[] = []
-  for (const seq of sequences) {
-    for (let k = 0; k < seq.length; k++) {
-      const station = seq[k]
-      if (merged.includes(station)) continue
-      const anchor = seq.slice(k + 1).find((s) => merged.includes(s))
-      if (anchor !== undefined) merged.splice(merged.indexOf(anchor), 0, station)
-      else merged.push(station)
+export function minutesToFrom(trains: Train[], from: string): Map<string, number> {
+  const samples = new Map<string, number[]>()
+  for (const t of trains) {
+    const i = indexOf(t, from)
+    if (i <= 0) continue
+    const arriveFrom = t.calls[i].aimedArrival ?? t.calls[i].aimedDeparture
+    if (arriveFrom === null) continue
+    for (const c of t.calls.slice(0, i)) {
+      const dep = c.aimedDeparture ?? c.aimedArrival
+      if (dep === null) continue
+      const minutes = (arriveFrom - dep) / 60_000
+      if (minutes <= 0) continue
+      const list = samples.get(c.station)
+      if (list) list.push(minutes)
+      else samples.set(c.station, [minutes])
     }
   }
-  return merged
+  const out = new Map<string, number>()
+  for (const [station, list] of samples) {
+    list.sort((a, b) => a - b)
+    out.set(station, list[Math.floor(list.length / 2)])
+  }
+  return out
+}
+
+const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const r = Math.PI / 180
+  const dLat = (lat2 - lat1) * r
+  const dLon = (lon2 - lon1) * r
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dLon / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(a))
+}
+
+export function kmFromStation(trains: Train[], from: string): Map<string, number> | null {
+  let origin: { lat: number; lon: number } | null = null
+  for (const t of trains) {
+    const c = t.calls.find((x) => x.station === from)
+    if (c && c.lat !== null && c.lon !== null) {
+      origin = { lat: c.lat, lon: c.lon }
+      break
+    }
+  }
+  if (!origin) return null
+  const out = new Map<string, number>()
+  for (const t of trains) {
+    const i = indexOf(t, from)
+    if (i <= 0) continue
+    for (const c of t.calls.slice(0, i)) {
+      if (out.has(c.station) || c.lat === null || c.lon === null) continue
+      out.set(c.station, haversineKm(origin.lat, origin.lon, c.lat, c.lon))
+    }
+  }
+  return out
+}
+
+export function upstreamOrder(trains: Train[], from: string): string[] {
+  const minutes = minutesToFrom(trains, from)
+  const km = kmFromStation(trains, from)
+  const measure = (station: string): number => {
+    const d = km?.get(station)
+    if (d !== undefined) return d
+    return 1000 + (minutes.get(station) ?? 0)
+  }
+  return [...minutes.keys()].sort((a, b) => measure(a) - measure(b) || a.localeCompare(b, 'nb'))
 }
 
 export function pickUpstreamRows(order: string[], trains: Train[], from: string, n = UPSTREAM_ROWS): string[] {
@@ -350,4 +397,15 @@ export function visibleTrains(list: CorridorTrain[], now: number, horizon = TIME
     laterUntil = Math.max(laterUntil ?? 0, c.arrivesFrom)
   }
   return { shown, laterCount, laterUntil }
+}
+
+export function trainsAsOf(trains: Train[], at: number): Train[] {
+  return trains.map((t) => ({
+    ...t,
+    calls: t.calls.map((c) => ({
+      ...c,
+      actualDeparture: c.actualDeparture !== null && c.actualDeparture > at ? null : c.actualDeparture,
+      actualArrival: c.actualArrival !== null && c.actualArrival > at ? null : c.actualArrival,
+    })),
+  }))
 }

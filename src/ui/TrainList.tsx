@@ -21,7 +21,7 @@ function stateText(ct: CorridorTrain): React.ReactNode {
   if (ct.cancelled) return <span className="text-late-3">cancelled</span>
   if (s.kind === 'starts-here') return 'originates here'
   if (s.kind === 'not-departed') return 'not departed'
-  const where = ct.group === 'ahead' ? `past ${s.at}` : `at ${s.at}, ${stopsAway(s.stopsAway)}`
+  const where = ct.group === 'ahead' ? `past ${s.at}` : s.stopsAway <= 0 ? stopsAway(0, s.standing) : `at ${s.at}, ${stopsAway(s.stopsAway, s.standing)}`
   return (
     <>
       <span className="num text-ink">{signed(s.delay)}</span> {s.verdict}, {where}

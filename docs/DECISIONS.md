@@ -203,9 +203,14 @@ at Drammen is nine. The same station landing on different rows made the picture 
 geography, and the owner found the relative labels unreadable. Rows above the horizon are
 now stations.
 
-Branching is handled by merging the approaching trains' running orders into one sequence
-(longest pattern first, others inserted before the first station they share with it,
-unshared tails appended) and showing the eight stations passed by the most trains. A train at
+Branching was first handled by merging running orders by stop index, which put the tail of a
+branch with many small stops "further out" than Drammen. Stop index is not distance. Scheduled
+running time was tried next and failed the same way in reverse: Asker sorted before Hvalstad
+because expresses reach Sandvika in five minutes, and Eidsvoll sorted before Jessheim because
+Gardermobanen is fast. Time depends on the train; distance does not. Rows are ordered by
+straight-line distance from the station to `from`, from coordinates carried in the journey
+response, with running time as the fallback for recordings made before coordinates were
+fetched. The eight stations passed by the most trains are shown. A train at
 an unshown station sits between its neighbours and names the station in its label; beyond the
 last row it sits in the *further out* gutter.
 

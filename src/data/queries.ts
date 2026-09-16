@@ -25,7 +25,7 @@ const JOURNEY_FIELDS = `
   estimatedCalls {
     aimedDepartureTime actualDepartureTime aimedArrivalTime actualArrivalTime
     realtime cancellation stopPositionInPattern
-    quay { id publicCode stopPlace { id name } }
+    quay { id publicCode stopPlace { id name latitude longitude } }
   }`
 
 export function journeysBatchQuery(ids: string[]): string {

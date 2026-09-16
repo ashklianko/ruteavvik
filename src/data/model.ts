@@ -9,6 +9,8 @@ export interface Call {
   aimedArrival: number | null
   actualArrival: number | null
   cancelled: boolean
+  lat: number | null
+  lon: number | null
 }
 
 export interface Train {
@@ -37,6 +39,8 @@ export function toTrain(journey: RawJourney, destination: string): Train {
         aimedArrival: ms(c.aimedArrivalTime),
         actualArrival: ms(c.actualArrivalTime),
         cancelled: c.cancellation,
+        lat: c.quay!.stopPlace.latitude ?? null,
+        lon: c.quay!.stopPlace.longitude ?? null,
       }))
       .sort((a, b) => a.position - b.position),
   }

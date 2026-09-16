@@ -23,10 +23,12 @@ No value derived from `expectedDepartureTime` is ever displayed.
 ## Global
 
 One screen: selector on top, the **diagram** and the **list** side by side on wide screens
-and stacked (diagram first) below 900 px. The **network map** is a second view reached by a
-`Network` link and the `#network` hash; it is not a tab inside the main screen.
+and stacked (diagram first) below 900 px. The diagram column carries a `Now` / `Last hour`
+switch between the spine and the time chart; both share the list, headline and selection.
 
-Selection of `from`, `to` and line filter persists in `localStorage` under `ruteavvik.pair`.
+Selection of `from`, `to` and line filter persists in `localStorage` under `ruteavvik.pair`
+and mirrors into the URL as `?from=&to=&lines=`, so a link opens the same pair; URL wins
+over storage on load.
 With no stored pair the selector is open and the diagram shows an empty spine with the
 prompt *pick where you are and where you are going*.
 
@@ -87,11 +89,11 @@ An SVG filling its column, redrawn on every poll with transitions on position on
 Rows are stations, equally spaced, flowing **downwards**: trains enter at the top and travel
 towards `to` at the bottom.
 
-- **Above the horizon** rows are the stations trains come from, nearest at the bottom. Lines
-  branch and skip stops upstream, so the running orders of every approaching train are merged
-  into one sequence: the longest pattern first, other patterns inserted before the next station
-  they share with it, unshared tails appended. Of that sequence the eight stations passed by
-  the most trains become rows, kept in merged order. A train at a station without a row sits
+- **Above the horizon** rows are the stations trains come from, nearest at the bottom,
+  ordered by straight-line distance from that station to `from`, so branches and parallel
+  lines interleave by geography rather than by stop count or running time.
+  Of that sequence the eight stations passed by the most trains become rows, kept in time
+  order. A train at a station without a row sits
   between its neighbours' rows and names its station in its label; a train beyond the last row
   sits in a gutter row at the very top, *further out*.
 - **The horizon** is `from`, drawn full width and labelled with the station name and a minute
@@ -125,7 +127,9 @@ towards the spine.
 
 Three states, never blended:
 
-- **measured** — filled mark at its current row and displacement, trail, signed delay.
+- **measured** — filled mark at its current row and displacement, trail, signed delay. When
+  only the arrival at that stop is recorded the train is *standing* there, and the label,
+  list and headline say so: *at your platform*, *standing, 2 stops away*.
 - **starts here** — one hollow mark on the horizon at zero displacement; several such trains
   share it, labelled with their count and the next departure. The list names each.
 - **not departed yet** — hollow mark in the gutter row, label *not departed*, scheduled time
@@ -137,8 +141,9 @@ dropped from the diagram but still feed segment statistics.
 
 ### Ghost position
 
-A measured train's mark stays at its last measured stop until the next poll. Beside it a
-smaller hollow mark slides from that stop towards the next one, its progress being the time
+A measured train's mark stays at its last measured stop until the next poll. For the
+selected or hovered train only, a smaller hollow mark slides from that stop towards the next
+one, its progress being the time
 since the recorded departure divided by the timetable run time of the segment, at the same
 displacement as the measured mark. It reaches the next row and waits there when the train is
 due but not yet recorded. It is arithmetic on a measured departure and the timetable, drawn
@@ -172,6 +177,12 @@ rows is not necessarily one piece of track.
 
 Hovering or focusing a coloured segment shows `{A} to {B}, +M:SS added over n trains` and
 highlights the trains involved. Segments at or above one minute glow softly.
+
+### First opening
+
+Until the user has changed the pair or selected a train once, one sentence under the diagram
+says what the picture means: *On the line means on time. Drifting right means late, by the
+minutes on the scale. Tap a train to follow it.* Remembered in `localStorage`.
 
 ### Green state
 
@@ -222,9 +233,31 @@ Shown as *Arrives {to} HH:MM–HH:MM · from the last {k} trains* when the sampl
 *Arrives {to} HH:MM if it does not catch up · too few trains ahead to say more*. The headline
 train's window also appears in the caption under the diagram.
 
+## Last hour
+
+Second view, reached by the `Last hour` link and the `#timeline` hash; `Now` returns to the
+diagram. Time runs across, from 100 minutes ago to 30 minutes ahead, with a rule at the
+current time. Stations run down: the same rows as the diagram, upstream stations first, then
+`from` as a heavier line, then the corridor to `to`.
+
+Every train serving the pair, including those already past `to`, is one line in its line
+colour: solid through its recorded times, a faint dashed twin through its timetable, and a
+dotted continuation after the last recorded stop carrying the current delay forward. The
+horizontal gap between dashed and solid is the delay. Stations without a row are skipped
+without breaking the line.
+
+Hovering or selecting a train, here or in the list, dims the rest and labels the train at its
+last recorded stop. Selection is shared with the list. The caption explains the three line
+styles in one sentence.
+
+**Scrubbing.** Moving the pointer along the time axis rewinds the whole page to that moment:
+every recording made after it is forgotten, and the diagram below the chart, the headline and
+the list show the line as it was then, with the moment named. Leaving the chart returns to
+now. Mouse only; touch scrolls.
+
 ## Network map
 
-Second view. Real track polylines from `line.journeyPatterns.pointsOnLink` for every line
+Third view, not yet built. Real track polylines from `line.journeyPatterns.pointsOnLink` for every line
 with a stop in scope, drawn in SVG over a static coastline of the Oslofjord and no other
 basemap, projected with Mercator and fitted to the viewport. Stations as dots; labels for
 `from`, `to`, and stations with three or more lines.

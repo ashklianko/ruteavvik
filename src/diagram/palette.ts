@@ -1,27 +1,23 @@
 import type { Band } from '../data/derive.ts'
 
-const LINE_COLOURS: Record<string, string> = {
-  L1: '#82b4d8',
-  L2: '#7ed3b2',
-  L12: '#b7a6e8',
-  L13: '#e3a6c9',
-  L14: '#c9d36f',
-  L21: '#f0b27a',
-  L22: '#f0b27a',
-  R10: '#f2c14e',
-  RE10: '#f2c14e',
-  R11: '#e8956b',
-  RE11: '#e8956b',
-  R12: '#d97d8c',
-  R13: '#8fd0de',
-  R14: '#a9d18e',
-  R20: '#d9b9a3',
-  R30: '#d9b9a3',
-  FLY1: '#f5a623',
+const FAMILY_COLOURS = {
+  local: '#82b4d8',
+  regional: '#7ed3b2',
+  airport: '#e3a6c9',
+}
+
+export type Family = keyof typeof FAMILY_COLOURS
+
+export function familyOf(code: string): Family | null {
+  if (/^FLY/i.test(code)) return 'airport'
+  if (/^L\d/i.test(code)) return 'local'
+  if (/^RE?\d/i.test(code)) return 'regional'
+  return null
 }
 
 export function lineColour(code: string): string {
-  return LINE_COLOURS[code] ?? 'var(--color-ink-muted)'
+  const f = familyOf(code)
+  return f ? FAMILY_COLOURS[f] : 'var(--color-ink-muted)'
 }
 
 export const BAND_COLOUR: Record<Band, string> = {

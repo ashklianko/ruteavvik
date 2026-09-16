@@ -23,7 +23,7 @@ export function Headline({ h, from, to }: { h: H; from: string | null; to: strin
     case 'on-time':
       return (
         <p className="headline">
-          Next to {to} at <N>{departure(h, from)}</N>, running to time, {stopsAway(h.stopsAway)}.
+          Next to {to} at <N>{departure(h, from)}</N>, running to time, {stopsAway(h.stopsAway, h.train.state.kind === 'measured' && h.train.state.standing)}.
         </p>
       )
     case 'late':

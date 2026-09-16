@@ -18,7 +18,8 @@ export function minutesWord(seconds: number): string {
   return m === 1 ? '1 min' : `${m} min`
 }
 
-export function stopsAway(n: number): string {
-  if (n <= 0) return 'at your station'
-  return n === 1 ? '1 stop away' : `${n} stops away`
+export function stopsAway(n: number, standing = false): string {
+  if (n <= 0) return standing ? 'at your platform' : 'at your station'
+  const away = n === 1 ? '1 stop away' : `${n} stops away`
+  return standing ? `standing, ${away}` : away
 }

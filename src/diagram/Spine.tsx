@@ -46,6 +46,8 @@ const LABEL_CANDIDATES: Array<{ dx: number; dy: number }> = [
 ]
 const CHAR_W = 6.6
 const LABEL_H = 11
+const QUIET_S = 30
+const CLUSTER_PX = 10
 
 interface Mark {
   ct: CorridorTrain
@@ -128,7 +130,7 @@ function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: numbe
       y,
       hollow: false,
       label: `${train.number} ${signed(state.delay)}`,
-      sub: onRow ? null : `at ${state.at}`,
+      sub: onRow ? (state.standing ? 'standing' : null) : state.standing ? `standing at ${state.at}` : `at ${state.at}`,
       trail,
       pinned: isPinned(state.delay),
       ghost: ghostOf(train, state.index, layout, from, x, now),
@@ -171,12 +173,34 @@ export function Spine(props: Props) {
   const { from, to, corridor, upstreamOrder, upstreamRows, list, trains, segments, observations, now, selected, hovered, onSelect, onHover, ariaLabel } = props
   const empty = !from || !to
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
+  const [openCluster, setOpenCluster] = useState<string | null>(null)
 
   const layout = useMemo(
     () => buildLayout({ corridor: corridor.length ? corridor : [from ?? ''], upstreamOrder, upstreamRows, from: from ?? '', list }),
     [corridor, upstreamOrder, upstreamRows, list, from],
   )
-  const marks = useMemo(() => marksOf(list, layout, from ?? '', now), [list, layout, from, now])
+  const allMarks = useMemo(() => marksOf(list, layout, from ?? '', now), [list, layout, from, now])
+  const clusters = useMemo(() => {
+    const groups = new Map<string, Mark[]>()
+    for (const m of allMarks) {
+      if (m.hollow) continue
+      const at = m.ct.state.kind === 'measured' ? m.ct.state.at : ''
+      const key = `${at}:${Math.round(m.y)}:${Math.round(m.x / CLUSTER_PX)}`
+      const g = groups.get(key)
+      if (g) g.push(m)
+      else groups.set(key, [m])
+    }
+    return new Map([...groups].filter(([, g]) => g.length > 1))
+  }, [allMarks])
+  const clusterOf = (m: Mark) => {
+    for (const [key, g] of clusters) if (g.includes(m)) return key
+    return null
+  }
+  const marks = useMemo(() => {
+    const collapsed = new Set<Mark>()
+    for (const [key, g] of clusters) if (key !== openCluster) for (const m of g.slice(1)) collapsed.add(m)
+    return allMarks.filter((m) => !collapsed.has(m))
+  }, [allMarks, clusters, openCluster])
   const slots = useMemo(() => labelSlots(marks), [marks])
   const labelX = useMemo(() => {
     const minX = new Map<number, number>()
@@ -193,7 +217,8 @@ export function Spine(props: Props) {
     return m
   }, [hoverSegment, observations, now])
   const dimmed = focusId !== null || segmentTrains !== null
-  const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id)
+  const openMembers = openCluster ? new Set(clusters.get(openCluster)?.map((m) => m.ct.train.id)) : null
+  const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id || (openMembers?.has(id) ?? false))
 
   const focusWindow: { ct: CorridorTrain; w: ArrivalWindow } | null = useMemo(() => {
     if (!focusId || !to) return null
@@ -215,6 +240,7 @@ export function Spine(props: Props) {
       onClick={(e) => {
         if (e.target === e.currentTarget) onSelect(null)
       }}
+      onMouseLeave={() => setOpenCluster(null)}
     >
       <defs>
         <filter id="glow" x="-50%" y="-20%" width="200%" height="140%">
@@ -335,10 +361,10 @@ export function Spine(props: Props) {
       {marks.map((m) => {
         if (!m.ghost) return null
         const id = m.ct.train.id
-        const lit = isLit(id)
+        if (focusId !== id) return null
         const colour = lineColour(m.ct.train.line)
         return (
-          <g key={`ghost-${id}`} className="ghost" opacity={dimmed && !lit ? 0.15 : 0.8}>
+          <g key={`ghost-${id}`} className="ghost" opacity={0.85}>
             <line x1={m.x} y1={m.y} x2={m.ghost.x} y2={m.ghost.y} stroke={colour} strokeWidth={1} strokeDasharray="2 4" strokeOpacity={0.6} />
             <g className="ghost-mark" style={{ transform: `translate(${m.ghost.x}px, ${m.ghost.y}px)` }}>
               <circle r={4} fill="var(--color-ground)" stroke={colour} strokeWidth={1.4} strokeDasharray={m.ghost.due ? '2 2' : undefined} />
@@ -385,8 +411,15 @@ export function Spine(props: Props) {
         const colour = lineColour(m.ct.train.line)
         const slot = slots.get(id) ?? LABEL_CANDIDATES[0]
         const segAdded = segmentTrains?.get(id)
-        const label = segAdded !== undefined ? `${m.ct.train.number} ${signed(segAdded)}` : m.label
-        const sub = segAdded !== undefined ? 'here' : m.sub
+        const clusterKey = clusterOf(m)
+        const cluster = clusterKey && clusterKey !== openCluster ? clusters.get(clusterKey)! : null
+        const quiet = !m.hollow && m.ct.state.kind === 'measured' && Math.abs(m.ct.state.delay) < QUIET_S && !lit && !isSel && !cluster
+        const label = cluster
+          ? `${cluster.length} trains ${signed(m.ct.state.kind === 'measured' ? m.ct.state.delay : 0)}`
+          : segAdded !== undefined
+            ? `${m.ct.train.number} ${signed(segAdded)}`
+            : m.label
+        const sub = cluster ? (m.sub ?? '').replace(/^standing/, '') || null : segAdded !== undefined ? 'here' : m.sub
         return (
           <a
             key={id}
@@ -397,9 +430,15 @@ export function Spine(props: Props) {
               e.preventDefault()
               onSelect(isSel ? null : id)
             }}
-            onMouseEnter={() => onHover(id)}
+            onMouseEnter={() => {
+              onHover(id)
+              if (clusterKey) setOpenCluster(clusterKey)
+            }}
             onMouseLeave={() => onHover(null)}
-            onFocus={() => onHover(id)}
+            onFocus={() => {
+              onHover(id)
+              if (clusterKey) setOpenCluster(clusterKey)
+            }}
             onBlur={() => onHover(null)}
           >
             <title>
@@ -409,6 +448,14 @@ export function Spine(props: Props) {
             <circle r={14} fill="transparent" />
             {m.hollow ? (
               <circle r={5} fill="var(--color-ground)" stroke={colour} strokeWidth={1.5} />
+            ) : cluster ? (
+              <>
+                <circle r={8} fill={colour} fillOpacity={0.25} />
+                <circle r={5.5} fill={colour} stroke="var(--color-ground)" strokeWidth={1.5} />
+                <text y={3.5} textAnchor="middle" className="num" fontSize={8} fontWeight={600} fill="var(--color-ground)">
+                  {cluster.length}
+                </text>
+              </>
             ) : (
               <circle r={isSel || lit ? 7 : 5.5} fill={colour} stroke={isSel ? 'var(--color-ink)' : 'var(--color-ground)'} strokeWidth={1.5} />
             )}
@@ -417,7 +464,8 @@ export function Spine(props: Props) {
                 »
               </text>
             )}
-            {slot.dx > 0 && <line x1={8} y1={0} x2={(m.pinned ? 20 : 10) + slot.dx - 4} y2={slot.dy - 4} stroke="var(--color-ink-faint)" strokeWidth={0.75} />}
+            {slot.dx > 0 && !quiet && <line x1={8} y1={0} x2={(m.pinned ? 20 : 10) + slot.dx - 4} y2={slot.dy - 4} stroke="var(--color-ink-faint)" strokeWidth={0.75} />}
+            {!quiet && (
             <text x={(m.pinned ? 20 : 10) + slot.dx} y={slot.dy} className="num" fontSize={11} fill={m.hollow ? 'var(--color-ink-faint)' : 'var(--color-ink)'} style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
               {label}
               {sub && (
@@ -427,6 +475,7 @@ export function Spine(props: Props) {
                 </tspan>
               )}
             </text>
+            )}
           </a>
         )
       })}

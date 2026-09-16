@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import sandvika from '../../public/snapshots/sandvika-oslo-s-2026-09-16-08-07.json'
-import lillestrom from '../../public/snapshots/lillestrom-oslo-s-2026-09-16-08-07.json'
+import sandvika from '../../public/snapshots/sandvika-oslo-s-2026-09-16-11-37.json'
+import lillestrom from '../../public/snapshots/lillestrom-oslo-s-2026-09-16-11-37.json'
 import {
   aggregateSegments,
   arrivalWindow,
@@ -10,10 +10,12 @@ import {
   delayAt,
   groupOf,
   headlineOf,
+  kmFromStation,
   officiallyLateCount,
   pickUpstreamRows,
   segmentObservations,
   stateOf,
+  trainsAsOf,
   upstreamOrder,
   verdictOf,
   visibleTrains,
@@ -34,6 +36,8 @@ function call(station: string, position: number, aimedMin: number, delayS: numbe
     actualArrival: delayS === null ? null : aimed - 30_000 + delayS * 1000,
     actualDeparture: delayS === null ? null : aimed + delayS * 1000,
     cancelled: false,
+    lat: null,
+    lon: null,
     ...opts,
   }
 }
@@ -214,14 +218,25 @@ describe('live snapshot · Lillestrøm → Oslo S', () => {
 })
 
 describe('upstream rows', () => {
-  it('merges branching patterns into one order, nearest first, and keeps each branch contiguous', () => {
+  it('orders stations by scheduled minutes to the user station, so a far express stop outranks a near branch stop', () => {
     const local = train('l', [], ['P', 'Q', 'R', 'J', 'X', 'FROM', 'TO'])
     const branch = train('b', [], ['M', 'N', 'J', 'X', 'FROM', 'TO'])
     const express = train('e', [], ['P', 'J', 'FROM', 'TO'])
-    const order = upstreamOrder([local, branch, express], 'FROM')
-    expect(order).toEqual(['X', 'J', 'R', 'Q', 'P', 'N', 'M'])
-    const withExtra = train('x', [], ['P', 'Q', 'S', 'R', 'J', 'X', 'FROM', 'TO'])
-    expect(upstreamOrder([local, withExtra], 'FROM')).toEqual(['X', 'J', 'R', 'S', 'Q', 'P'])
+    expect(upstreamOrder([local, branch, express], 'FROM')).toEqual(['X', 'J', 'N', 'R', 'M', 'Q', 'P'])
+    const farBranch = train('f', [], ['FAR', 'J', 'X', 'FROM', 'TO'])
+    farBranch.calls[0] = { ...farBranch.calls[0], aimedDeparture: farBranch.calls[1].aimedDeparture! - 40 * 60_000, aimedArrival: farBranch.calls[1].aimedDeparture! - 40 * 60_000 }
+    expect(upstreamOrder([local, farBranch], 'FROM').at(-1)).toBe('FAR')
+  })
+  it('prefers geography when coordinates are known: a far station on a fast line still ranks far', () => {
+    const at = (t: Train, coords: Record<string, [number, number]>) => {
+      t.calls = t.calls.map((c) => (coords[c.station] ? { ...c, lat: coords[c.station][0], lon: coords[c.station][1] } : c))
+      return t
+    }
+    const coords: Record<string, [number, number]> = { FROM: [59.9, 11.0], NEAR: [59.95, 11.0], MID: [60.0, 11.0], FAR: [60.2, 11.0] }
+    const slowLocal = at(train('l', [], ['MID', 'NEAR', 'FROM', 'TO']), coords)
+    const fastExpress = at(train('e', [], ['FAR', 'FROM', 'TO']), coords)
+    expect(upstreamOrder([slowLocal, fastExpress], 'FROM')).toEqual(['NEAR', 'MID', 'FAR'])
+    expect(kmFromStation([slowLocal], 'FROM')?.get('MID')).toBeCloseTo(11.1, 0)
   })
   it('picks the stations most trains pass, then orders them by distance', () => {
     const local = train('l', [], ['P', 'Q', 'R', 'J', 'X', 'FROM', 'TO'])
@@ -248,5 +263,20 @@ describe('visibleTrains', () => {
     expect(v.shown.map((c) => c.train.id)).toEqual(['s', 'm'])
     expect(v.laterCount).toBe(2)
     expect(v.laterUntil).toBe(later.calls[2].aimedArrival)
+  })
+})
+
+describe('trainsAsOf', () => {
+  it('forgets every measurement recorded after the given moment', () => {
+    const t = train('1', [0, 60, 120, null, null, null])
+    const rewound = trainsAsOf([t], t.calls[1].actualDeparture! + 1000)[0]
+    expect(stateOf(rewound, 'E')).toMatchObject({ kind: 'measured', at: 'B', delay: 60 })
+    expect(stateOf(trainsAsOf([t], t.calls[0].aimedDeparture! - 60_000)[0], 'E')).toEqual({ kind: 'not-departed' })
+  })
+  it('marks a train standing at a stop when only its arrival is recorded', () => {
+    const t = train('1', [0, null, null])
+    t.calls[1].actualArrival = t.calls[1].aimedArrival! + 10_000
+    expect(stateOf(t, 'C')).toMatchObject({ kind: 'measured', at: 'B', standing: true })
+    expect(stateOf(train('2', [0, 5, null]), 'C')).toMatchObject({ standing: false })
   })
 })

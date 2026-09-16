@@ -33,6 +33,10 @@ makes the product possible.
 **Batching** — 20 journeys as aliases in one request: **0.20 s, 93 KB**. No practical limit
 encountered at 25 per batch.
 
+**`quay.stopPlace.latitude / longitude`** inside journey calls give every station's
+coordinates for free, including stations outside the scope box such as Drammen. The diagram
+orders upstream rows by distance from these.
+
 **`serviceJourney.privateCode`** — the Norwegian train number as printed on platform
 displays: 1640, 2241, 521, 1023. `publicCode` is null; do not use it.
 
