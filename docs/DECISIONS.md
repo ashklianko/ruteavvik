@@ -168,8 +168,9 @@ fifteen take the rest, beyond that the mark pins to the edge. Early trains mirro
 clamped at two minutes. The horizon carries the minute scale so the axis is never implied.
 
 **Vertical spine, flowing down.** Trains enter at the top and travel towards `to` at the
-bottom. Above the horizon rows are *stops away*, because lines branch upstream and a
+bottom. Above the horizon rows were first *stops away*, because lines branch upstream and a
 relative index lets every branch share one spine; below it rows are the concrete corridor.
+Superseded above the horizon by 15.
 
 **The list is always visible.** It is the accessible twin of the diagram and the place where
 numbers live; the diagram is for shape. Detail opens on selection inside the list. Hiding the
@@ -192,3 +193,21 @@ actually get there* for everyone, and anyone with a connection can subtract.
 
 With 13, the product makes no claim about connections, so what the operators do about them
 no longer affects scope.
+
+---
+
+## 15 · Station names above the horizon, not stops away
+
+*Stops away* depends on the train: an express at Drammen is two stops from Sandvika, a local
+at Drammen is nine. The same station landing on different rows made the picture lie about
+geography, and the owner found the relative labels unreadable. Rows above the horizon are
+now stations.
+
+Branching is handled by merging the approaching trains' running orders into one sequence
+(longest pattern first, others inserted before the first station they share with it,
+unshared tails appended) and showing the eight stations passed by the most trains. A train at
+an unshown station sits between its neighbours and names the station in its label; beyond the
+last row it sits in the *further out* gutter.
+
+**Cost.** Two branches read as one column with a seam at the junction. The label on the mark
+carries the truth when the row does not.

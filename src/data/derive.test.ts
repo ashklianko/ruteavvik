@@ -11,9 +11,12 @@ import {
   groupOf,
   headlineOf,
   officiallyLateCount,
+  pickUpstreamRows,
   segmentObservations,
   stateOf,
+  upstreamOrder,
   verdictOf,
+  visibleTrains,
 } from './derive.ts'
 import { trainsFromSnapshot, type Call, type Train } from './model.ts'
 import type { CorridorSnapshot } from './types.ts'
@@ -207,5 +210,43 @@ describe('live snapshot · Lillestrøm → Oslo S', () => {
     const list = corridorTrains(trainsFromSnapshot(snap), snap.from, snap.to)
     expect(list.length).toBeGreaterThan(3)
     expect(corridorStations(list, snap.from, snap.to)[0]).toBe('Lillestrøm')
+  })
+})
+
+describe('upstream rows', () => {
+  it('merges branching patterns into one order, nearest first, and keeps each branch contiguous', () => {
+    const local = train('l', [], ['P', 'Q', 'R', 'J', 'X', 'FROM', 'TO'])
+    const branch = train('b', [], ['M', 'N', 'J', 'X', 'FROM', 'TO'])
+    const express = train('e', [], ['P', 'J', 'FROM', 'TO'])
+    const order = upstreamOrder([local, branch, express], 'FROM')
+    expect(order).toEqual(['X', 'J', 'R', 'Q', 'P', 'N', 'M'])
+    const withExtra = train('x', [], ['P', 'Q', 'S', 'R', 'J', 'X', 'FROM', 'TO'])
+    expect(upstreamOrder([local, withExtra], 'FROM')).toEqual(['X', 'J', 'R', 'S', 'Q', 'P'])
+  })
+  it('picks the stations most trains pass, then orders them by distance', () => {
+    const local = train('l', [], ['P', 'Q', 'R', 'J', 'X', 'FROM', 'TO'])
+    const branch = train('b', [], ['M', 'N', 'J', 'X', 'FROM', 'TO'])
+    const express = train('e', [], ['P', 'J', 'FROM', 'TO'])
+    const order = upstreamOrder([local, branch, express], 'FROM')
+    expect(pickUpstreamRows(order, [local, branch, express], 'FROM', 3)).toEqual(['X', 'J', 'P'])
+  })
+})
+
+describe('visibleTrains', () => {
+  it('keeps every measured train and only the unmeasured ones due within the horizon', () => {
+    const measuredFar = train('m', [0, 30, null, null, null, null])
+    measuredFar.calls = measuredFar.calls.map((c) => shift(c, 80 * 60_000))
+    const soon = train('s', [null, null, null, null, null, null])
+    soon.calls = soon.calls.map((c) => shift(c, 15 * 60_000))
+    const late = train('l', [null, null, null, null, null, null])
+    late.calls = late.calls.map((c) => shift(c, 50 * 60_000))
+    const later = train('x', [null, null, null, null, null, null])
+    later.calls = later.calls.map((c) => shift(c, 70 * 60_000))
+    const list = corridorTrains([measuredFar, soon, late, later], 'C', 'E')
+    const now = min(10)
+    const v = visibleTrains(list, now)
+    expect(v.shown.map((c) => c.train.id)).toEqual(['s', 'm'])
+    expect(v.laterCount).toBe(2)
+    expect(v.laterUntil).toBe(later.calls[2].aimedArrival)
   })
 })

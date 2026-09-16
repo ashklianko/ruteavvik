@@ -87,10 +87,13 @@ An SVG filling its column, redrawn on every poll with transitions on position on
 Rows are stations, equally spaced, flowing **downwards**: trains enter at the top and travel
 towards `to` at the bottom.
 
-- **Above the horizon** rows are relative: *1 stop away*, *2 stops away* … up to six. Lines
-  branch upstream, so rows here are indexed by distance and each train mark carries its own
-  current station name. A train more than six stops away sits in a gutter row at the very
-  top, *further out*, with its station named.
+- **Above the horizon** rows are the stations trains come from, nearest at the bottom. Lines
+  branch and skip stops upstream, so the running orders of every approaching train are merged
+  into one sequence: the longest pattern first, other patterns inserted before the next station
+  they share with it, unshared tails appended. Of that sequence the eight stations passed by
+  the most trains become rows, kept in merged order. A train at a station without a row sits
+  between its neighbours' rows and names its station in its label; a train beyond the last row
+  sits in a gutter row at the very top, *further out*.
 - **The horizon** is `from`, drawn full width and labelled with the station name and a minute
   scale: ticks at 0, +1, +2, +5, +10 reading rightwards, −1 leftwards.
 - **Below the horizon** rows are the concrete corridor stations in running order, taken from
@@ -123,13 +126,32 @@ towards the spine.
 Three states, never blended:
 
 - **measured** — filled mark at its current row and displacement, trail, signed delay.
-- **starts here** — hollow mark on the horizon at zero displacement, label *starts here*.
+- **starts here** — one hollow mark on the horizon at zero displacement; several such trains
+  share it, labelled with their count and the next departure. The list names each.
 - **not departed yet** — hollow mark in the gutter row, label *not departed*, scheduled time
   only. Nothing numeric beyond the timetable is shown.
 
 A train that already passed `from` and is between `from` and `to` is drawn below the horizon
 with the same rules; these are *trains ahead of you*. Trains that already reached `to` are
 dropped from the diagram but still feed segment statistics.
+
+### Ghost position
+
+A measured train's mark stays at its last measured stop until the next poll. Beside it a
+smaller hollow mark slides from that stop towards the next one, its progress being the time
+since the recorded departure divided by the timetable run time of the segment, at the same
+displacement as the measured mark. It reaches the next row and waits there when the train is
+due but not yet recorded. It is arithmetic on a measured departure and the timetable, drawn
+hollow so it is never mistaken for a measurement. No ghost when only an arrival is measured.
+
+### Focus
+
+Hovering or focusing a train — mark or row — dims every other train and draws its arrival
+window on the `to` row as a bracket from the displacement of its carried delay to that of the
+worst recent added delay, labelled with the two clock times. Hovering or focusing a coloured
+segment highlights the trains that passed it inside the window and replaces each one's label
+with the seconds it lost or gained on that stretch. Selection by click is the sticky form of
+the same state.
 
 ### Segments
 
@@ -145,10 +167,11 @@ added delay over the last 60 minutes, rail only, n ≥ 4:
 | worse | above 150 s |
 | too few trains | fewer than 4 passes — dashed grey |
 
-Above the horizon the spine is plain: rows are relative, so no segment there is one piece of
-track.
+Above the horizon the spine is plain: rows come from merged patterns, so a gap between two
+rows is not necessarily one piece of track.
 
-Hovering or focusing a coloured segment shows `{A} → {B} · +M:SS added · n trains`.
+Hovering or focusing a coloured segment shows `{A} to {B}, +M:SS added over n trains` and
+highlights the trains involved. Segments at or above one minute glow softly.
 
 ### Green state
 
@@ -228,5 +251,5 @@ the only carrier: delay is also written, verdicts are words.
 
 - `predictionInaccurate` and `situations` are fetched but unused; a `Færre vogner` notice may
   deserve a glyph in the list.
-- Whether the gutter rows (*further out*, *not departed*) should collapse when empty or hold
-  their height to keep the diagram stable across polls.
+- Gutter rows (*further out*, *not departed*) collapse when empty. Whether that jumps too
+  much across polls is to be judged on the Thursday peak.

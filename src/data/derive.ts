@@ -291,3 +291,63 @@ export function officiallyLateCount(trains: Train[], now: number): number {
   }
   return n
 }
+
+export const UPSTREAM_ROWS = 8
+
+export function upstreamOrder(trains: Train[], from: string): string[] {
+  const sequences = trains
+    .map((t) => {
+      const i = indexOf(t, from)
+      return i > 0 ? t.calls.slice(0, i).map((c) => c.station).reverse() : []
+    })
+    .filter((s) => s.length > 0)
+    .sort((a, b) => b.length - a.length)
+  const merged: string[] = []
+  for (const seq of sequences) {
+    for (let k = 0; k < seq.length; k++) {
+      const station = seq[k]
+      if (merged.includes(station)) continue
+      const anchor = seq.slice(k + 1).find((s) => merged.includes(s))
+      if (anchor !== undefined) merged.splice(merged.indexOf(anchor), 0, station)
+      else merged.push(station)
+    }
+  }
+  return merged
+}
+
+export function pickUpstreamRows(order: string[], trains: Train[], from: string, n = UPSTREAM_ROWS): string[] {
+  const score = new Map<string, number>()
+  for (const t of trains) {
+    const i = indexOf(t, from)
+    for (const c of t.calls.slice(0, Math.max(0, i))) score.set(c.station, (score.get(c.station) ?? 0) + 1)
+  }
+  return order
+    .map((station, idx) => ({ station, idx, score: score.get(station) ?? 0 }))
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
+    .slice(0, n)
+    .sort((a, b) => a.idx - b.idx)
+    .map((x) => x.station)
+}
+
+export const TIMETABLE_HORIZON_MS = 30 * 60_000
+
+export interface Visible {
+  shown: CorridorTrain[]
+  laterCount: number
+  laterUntil: number | null
+}
+
+export function visibleTrains(list: CorridorTrain[], now: number, horizon = TIMETABLE_HORIZON_MS): Visible {
+  const shown: CorridorTrain[] = []
+  let laterCount = 0
+  let laterUntil: number | null = null
+  for (const c of list) {
+    if (c.state.kind === 'measured' || c.arrivesFrom === null || c.arrivesFrom <= now + horizon) {
+      shown.push(c)
+      continue
+    }
+    laterCount++
+    laterUntil = Math.max(laterUntil ?? 0, c.arrivesFrom)
+  }
+  return { shown, laterCount, laterUntil }
+}

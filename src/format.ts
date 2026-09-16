@@ -1,0 +1,24 @@
+const oslo = (opts: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Oslo', hour12: false, ...opts })
+
+const hm = oslo({ hour: '2-digit', minute: '2-digit' })
+const hms = oslo({ hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+export const fmtTime = (ms: number): string => hm.format(ms)
+export const fmtClock = (ms: number): string => hms.format(ms)
+
+export function signed(seconds: number): string {
+  const sign = seconds < 0 ? '−' : '+'
+  const abs = Math.abs(seconds)
+  return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`
+}
+
+export function minutesWord(seconds: number): string {
+  const m = Math.round(Math.abs(seconds) / 60)
+  return m === 1 ? '1 min' : `${m} min`
+}
+
+export function stopsAway(n: number): string {
+  if (n <= 0) return 'at your station'
+  return n === 1 ? '1 stop away' : `${n} stops away`
+}
