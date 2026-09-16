@@ -108,6 +108,17 @@ Not yet measured: one aliased `estimatedCalls` request over all 100 stations. Th
 took 0.6 s and 1378 rows; expect roughly two to three times that, and split into two
 requests if it exceeds a second.
 
+**The two ids are parent and child.** Verified 2026-09-16: `stopPlacesByBbox` returns the
+multimodal parent (`NSR:StopPlace:59872`, modes rail and bus); journeys reference the rail
+child (`NSR:StopPlace:337`, `parent` → 59872). Querying `estimatedCalls` on the parent works
+and returns the child id inside every call. Matching by name stays the rule; the parent id
+is what the selector queries with.
+
+**An origin can carry a garbage actual time.** R12 514 at Kongsberg showed
+`actualDepartureTime` 55 minutes *before* the timetable, on a train that had not left. A
+departure more than ten minutes early is treated as not measured
+(`IMPLAUSIBLE_EARLY_S`), which returns the train to *not departed yet*.
+
 **Optional vehicle fields are empty in practice.** `speed`, `destinationName` and
 `progressBetweenStops` came back null across the sample. Do not build on them.
 

@@ -1,6 +1,8 @@
+import { Debug } from './debug/Debug.tsx'
 import { Spine } from './diagram/Spine.tsx'
 
 export function App() {
+  if (window.location.hash === '#debug') return <Debug />
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 px-4 py-6 sm:px-8">
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
