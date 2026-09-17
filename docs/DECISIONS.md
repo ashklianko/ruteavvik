@@ -298,3 +298,23 @@ two; a segment is in the track colour up to a minute added and straw to two; the
 state calls a median under a minute *running well*. The official punctuality threshold is
 four minutes at the final station, so a scale that shouts at thirty seconds would undermine
 the product's own argument.
+
+---
+
+## 21 · Public repository, GitHub Pages from `main`
+
+The product is a static page with no secrets: Entur needs no key and the client name is
+public by design. Making the repository public costs nothing and unlocks GitHub Pages, which
+is free, on a CDN, and deploys from the same Actions run that tests and builds. Cloudflare
+Pages and Vercel would also have worked; Pages keeps everything in one place.
+
+The site lives under `/ruteavvik/`, so Vite's `base` comes from `BASE_PATH` in the workflow
+and stays `/` locally; snapshot fetches and the favicon are relative to it.
+
+**Deploys happen** on every push to `main`, and on a manual run of the workflow from the
+Actions tab. Nothing else triggers one: pushes to other branches, tags, and pull requests do
+not deploy. A run installs, runs the unit tests, builds and publishes; a failing test stops
+the deploy and the previous version stays live. Two pushes in quick succession cancel the
+older run.
+
+**Cost.** The source and the recorded snapshots are public. `recordings/` stays out of git.

@@ -160,7 +160,8 @@ This is a daily utility, so success is measured on ordinary mornings, not at a d
   keeps doing so. If Vy still gets opened first, the product has failed regardless of how it
   looks.
 - **Time to answer.** With a remembered pair, the headline and the diagram are on screen and
-  live within two seconds of opening on a phone over 4G, with no interaction.
+  live within two seconds of opening https://ashklianko.github.io/ruteavvik/ on a phone over
+  4G, with no interaction.
 - **Checkable.** Any displayed delay can be verified against the platform display or Vy's
   recorded time for that stop. No number on screen is a prediction.
 - **Worth opening when nothing is wrong.** A calm morning shows a straight spine and says so.

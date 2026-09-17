@@ -38,7 +38,7 @@ pnpm dev
 ```
 
 Live at https://ashklianko.github.io/ruteavvik/, deployed by GitHub Actions on every push to
-`main`. Data comes straight from the [Entur](https://developer.entur.org/) JourneyPlanner v3 API,
+`main` (see `.github/workflows/pages.yml`; a failing test blocks the deploy). Data comes straight from the [Entur](https://developer.entur.org/) JourneyPlanner v3 API,
 which is open and permits cross-origin requests; the only requirement is an
 `ET-Client-Name` header. `pnpm build` produces `dist/` for any static host.
 
