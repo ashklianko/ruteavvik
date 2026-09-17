@@ -193,10 +193,6 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
               {s.last && lit && (
                 <text x={s.last.x > MW - 180 ? s.last.x - 8 : s.last.x + 8} y={s.last.y - 8} textAnchor={s.last.x > MW - 180 ? 'end' : 'start'} className="num" fontSize={11} fill="var(--color-ink)" style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
                   {s.train.line} {s.train.number} {signed(s.last.delay)}
-                  <tspan fontFamily="var(--font-sans)" fill="var(--color-ink-muted)">
-                    {' '}
-                    to {s.train.destination}
-                  </tspan>
                 </text>
               )}
             </g>

@@ -1,7 +1,8 @@
 import type { CorridorTrain, Headline as H, StationMood } from '../data/derive.ts'
 import { MoodChip } from './MoodChip.tsx'
+import { relevantNotices } from '../data/notices.ts'
 import { CALM_S, indexOf } from '../data/derive.ts'
-import { delayWords, fmtTime, STATE_WORDS, stopsAway } from '../format.ts'
+import { delayWords, fmtTime, inWords, STATE_WORDS } from '../format.ts'
 
 interface Props {
   h: H
@@ -10,11 +11,10 @@ interface Props {
   following: CorridorTrain[]
   mood: StationMood | null
   lines?: string[]
+  now: number
   onHover: (id: string | null) => void
   onSelect: (id: string) => void
 }
-
-const N = ({ children }: { children: React.ReactNode }) => <span className="num text-ink">{children}</span>
 
 function scheduledAt(ct: CorridorTrain, from: string): number | null {
   const call = ct.train.calls[indexOf(ct.train, from)]
@@ -33,21 +33,17 @@ function platformAt(ct: CorridorTrain, from: string): string | null {
   return ct.train.calls[indexOf(ct.train, from)]?.platform ?? null
 }
 
-function why(ct: CorridorTrain, from: string): React.ReactNode {
-  const { train, state } = ct
+function route(ct: CorridorTrain, from: string): string {
   const platform = platformAt(ct, from)
-  const who = `${train.line} to ${train.destination}`
-  const tail = platform ? `, platform ${platform}` : ''
-  if (state.kind === 'starts-here') return `${who}, ${STATE_WORDS.startsHere}${tail}`
-  if (state.kind === 'not-departed') return `${who}, ${STATE_WORDS.notDeparted}, ${STATE_WORDS.timetableOnly}${tail}`
-  if (atPlatform(ct)) return `${who}, at your platform${tail}`
-  if (Math.abs(state.delay) <= CALM_S) return `${who}, on time, ${stopsAway(state.stopsAway, state.standing)}${tail}`
-  return (
-    <>
-      {who}, <N>{delayWords(state.delay)}</N> and {state.verdict} at {state.at}
-      {tail}
-    </>
-  )
+  return `${ct.train.line} to ${ct.train.destination}${platform ? `, pl. ${platform}` : ''}`
+}
+
+function status(ct: CorridorTrain): string | null {
+  const { state } = ct
+  if (state.kind === 'starts-here') return STATE_WORDS.startsHere
+  if (state.kind === 'not-departed') return STATE_WORDS.timetableOnly
+  if (Math.abs(state.delay) <= CALM_S) return null
+  return delayWords(state.delay)
 }
 
 function ThenItem({ ct, from, onHover, onSelect }: { ct: CorridorTrain; from: string; onHover: Props['onHover']; onSelect: Props['onSelect'] }) {
@@ -76,14 +72,15 @@ function ThenItem({ ct, from, onHover, onSelect }: { ct: CorridorTrain; from: st
   )
 }
 
-export function Headline({ h, from, to, following, mood, lines = [], onHover, onSelect }: Props) {
+export function Headline({ h, from, to, following, mood, lines = [], now, onHover, onSelect }: Props) {
   if (!from || !to) return <p className="headline">Pick where you are and where you are going.</p>
   if (h.kind === 'none') return <p className="headline">Nothing running from {from} to {to} right now.</p>
 
   const next = 'train' in h ? h.train : null
   if (!next) return <p className="headline">Nothing running from {from} to {to} right now.</p>
   const t = heroTime(next, from)
-  const reason = why(next, from)
+  const standing = atPlatform(next)
+  const late = status(next)
 
   return (
     <div className="hero">
@@ -99,9 +96,12 @@ export function Headline({ h, from, to, following, mood, lines = [], onHover, on
           onClick={() => onSelect(next.train.id)}
           aria-label={`Show train ${next.train.number} in the list`}
         >
-          <span className={`hero-time link-time ${atPlatform(next) ? '' : 'num'}`}>{atPlatform(next) ? 'Now' : t !== null ? fmtTime(t) : '—'}</span>
-          <span className="hero-why" title={typeof reason === 'string' ? reason : undefined}>
-            {reason}
+          <span className="hero-next">Next</span>
+          <span className={`hero-time link-time ${standing ? '' : 'num'}`}>{standing ? 'Now' : t !== null ? fmtTime(t) : '—'}</span>
+          {!standing && t !== null && <span className="hero-in">({inWords(t, now)})</span>}
+          <span className="hero-why" title={`${route(next, from)}${late ? `, ${late}` : ''}`}>
+            {route(next, from)}
+            {late && <span className="hero-late"> · {late}</span>}
             <span className="hero-chevron" aria-hidden="true">
               {' '}
               ›
@@ -109,6 +109,14 @@ export function Headline({ h, from, to, following, mood, lines = [], onHover, on
           </span>
         </button>
       </div>
+      {(() => {
+        const n = relevantNotices(next.train.notices, from, to).find((x) => x.kind === 'cancelled' || x.kind === 'incident')
+        return n ? (
+          <p className="hero-notice" title={`${n.summary}. ${n.description} ${n.advice}`.trim()}>
+            <strong>{n.summary}.</strong> {n.advice || n.description}
+          </p>
+        ) : null
+      })()}
       {following.length > 0 && (
         <p className="hero-then">
           Then{' '}

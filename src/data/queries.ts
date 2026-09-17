@@ -20,13 +20,25 @@ query($id: String!, $start: DateTime!, $range: Int!) {
   }
 }`
 
+const SITUATION_FIELDS = `
+  situations {
+    id severity reportType
+    summary { value language }
+    description { value language }
+    advice { value language }
+    validityPeriod { startTime endTime }
+    affects { __typename ... on AffectedStopPlaceOnServiceJourney { stopPlace { name } } }
+  }`
+
 const journeyFields = (date: string | null) => `
   id privateCode line { id publicCode name transportMode }
   journeyPattern { id }
+  ${SITUATION_FIELDS}
   estimatedCalls${date ? `(date: ${JSON.stringify(date)})` : ''} {
     aimedDepartureTime actualDepartureTime aimedArrivalTime actualArrivalTime
     realtime cancellation stopPositionInPattern
     quay { id publicCode stopPlace { id name latitude longitude } }
+    ${SITUATION_FIELDS}
   }`
 
 export interface JourneyRef {

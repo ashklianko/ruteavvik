@@ -49,8 +49,13 @@ L1 8 094; 134 003 characters total.
 **`realtime/v2/vehicles`** — **5894 vehicles live, 113 of them RAIL**, with coordinates,
 `delay` in seconds, `bearing`, `mode`, `line`.
 
-**`situations`** — deviation notices attached to departures, with severity, report type and
-validity. Sparse: 5 of 40 departures at Oslo S carried one, text `Færre vogner`.
+**`situations`** — deviation notices attached to a journey and to its stops, with severity,
+report type, validity and the stops affected. Text comes in Norwegian and English. Seen
+2026-09-17 afternoon: *Cancelled Skøyen–Asker* with *Use the next train*, *Delay expected*
+from Lillestrøm, and *Fewer carriages* on half the departures. Severity was `normal` on all
+of them; `reportType` is `incident` or `general`. A partial cancellation arrives as a
+situation, not as `cancellation: true` on the stops outside the cancelled stretch, so the
+notice is the only signal. `predictionInaccurate` was false everywhere.
 
 ## The measurement horizon
 

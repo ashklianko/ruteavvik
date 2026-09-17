@@ -354,7 +354,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
                   : segAdded !== undefined
                   ? `${m.ct.train.line} ${signed(segAdded)} here`
                   : lit && !m.hollow && m.ct.state.kind === 'measured'
-                    ? `${m.ct.train.line} to ${m.ct.train.destination}, ${delayWords(m.ct.state.delay)}, at ${m.ct.state.at}`
+                    ? `${m.ct.train.line}, ${delayWords(m.ct.state.delay)}, at ${m.ct.state.at}`
                     : m.label}
               </text>
             )}

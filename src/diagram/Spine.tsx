@@ -400,7 +400,7 @@ export function Spine(props: Props) {
         const segAdded = segmentTrains?.get(id)
         const clusterKey = clusterOf(m)
         const cluster = clusterKey && clusterKey !== openCluster ? clusters.get(clusterKey)! : null
-        const full = `${m.ct.train.line} to ${m.ct.train.destination}${m.ct.state.kind === 'measured' ? `, ${delayWords(m.ct.state.delay)}` : ''}`
+        const full = `${m.ct.train.line}${m.ct.state.kind === 'measured' ? `, ${delayWords(m.ct.state.delay)}` : ''}`
         const label = cluster
           ? `${cluster.length} trains`
           : segAdded !== undefined

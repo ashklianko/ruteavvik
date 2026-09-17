@@ -22,7 +22,8 @@ import {
   verdictOf,
   visibleTrains,
 } from './derive.ts'
-import { EXCLUDED_LINES, toTrain, trainsFromSnapshot, type Call, type Train } from './model.ts'
+import { EXCLUDED_LINES, noticeKind, toNotices, toTrain, trainsFromSnapshot, type Call, type Train } from './model.ts'
+import { inWords } from '../format.ts'
 import type { CorridorSnapshot } from './types.ts'
 
 const T0 = Date.parse('2026-09-16T08:00:00Z')
@@ -52,6 +53,7 @@ function train(id: string, delays: Array<number | null>, stations = ['A', 'B', '
     line: 'L1',
     destination: stations[stations.length - 1],
     patternId: null,
+    notices: [],
     calls: stations.map((s, i) => call(s, i, i * 5, delays[i] ?? null)),
   }
 }
@@ -365,5 +367,41 @@ describe('upstreamRowCount', () => {
     expect(upstreamRowCount(2)).toBe(4)
     expect(upstreamRowCount(3)).toBe(6)
     expect(upstreamRowCount(7)).toBe(8)
+  })
+})
+
+describe('notices', () => {
+  it('classifies operator messages by their text and type', () => {
+    expect(noticeKind('Cancelled Skøyen–Asker', 'The train has been cancelled between Skøyen and Asker.', 'incident')).toBe('cancelled')
+    expect(noticeKind('Fewer carriages', 'runs with 4 carriages instead of 8', 'general')).toBe('short')
+    expect(noticeKind('Delay expected', 'other trains on the line are delayed', 'incident')).toBe('incident')
+    expect(noticeKind('Ticket machines', 'out of order', 'general')).toBe('info')
+    expect(noticeKind('Line open: Moss–Vestby', 'The line has reopened. Trains that were cancelled now run as normal.', 'incident')).toBe('info')
+  })
+  it('prefers English, drops expired messages and dedupes by id', () => {
+    const now = Date.parse('2026-09-17T12:00:00Z')
+    const raw = {
+      id: 's1',
+      severity: 'normal',
+      reportType: 'incident',
+      summary: [{ value: 'Innstilt', language: 'no' }, { value: 'Cancelled Skøyen–Asker', language: 'en' }],
+      description: [{ value: 'Cancelled between Skøyen and Asker.', language: 'en' }],
+      advice: [{ value: 'Use the next train', language: 'en' }],
+      validityPeriod: { startTime: null, endTime: '2026-09-17T13:00:00Z' },
+      affects: [{ __typename: 'AffectedStopPlaceOnServiceJourney', stopPlace: { name: 'Skøyen stasjon' } }, { __typename: 'AffectedStopPlaceOnServiceJourney', stopPlace: { name: 'Asker' } }],
+    }
+    const n = toNotices([raw, raw, { ...raw, id: 's2', validityPeriod: { startTime: null, endTime: '2026-09-17T11:00:00Z' } }], now)
+    expect(n).toHaveLength(1)
+    expect(n[0]).toMatchObject({ kind: 'cancelled', summary: 'Cancelled Skøyen–Asker', advice: 'Use the next train', stations: ['Skøyen', 'Asker'] })
+  })
+})
+
+describe('inWords', () => {
+  it('rounds to minutes and says due once the time has passed', () => {
+    const now = Date.parse('2026-09-17T12:00:00Z')
+    expect(inWords(now + 6 * 60_000, now)).toBe('in 6 min')
+    expect(inWords(now + 50_000, now)).toBe('in 1 min')
+    expect(inWords(now + 20_000, now)).toBe('due')
+    expect(inWords(now - 90_000, now)).toBe('due')
   })
 })

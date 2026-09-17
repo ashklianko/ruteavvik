@@ -96,27 +96,46 @@ only one line serves the pair it is shown as a passive chip with the words *only
 pair*. The filter applies to every view and to the rows of the diagram: with only regional
 lines selected, local-only stations disappear. Segment statistics always use every train.
 
+## Operator notices
+
+Entur carries the operator's own messages on a journey and its stops: cancellations,
+incidents such as a failed switch or an expected delay, and general notes such as a short
+train. They are not measurements and are shown as what they are, labelled *Operator notice*,
+never mixed into the numbers. Each is classified from its text: *cancelled*, *incident*,
+*short* (fewer carriages) or *info*; expired ones are dropped.
+
+- In the list and the map panel a train carries small tags after its route: a red ✕ for a
+  cancellation, an orange ! for an incident, a grey ½ *short train*. Only notices that name
+  `from`, `to`, the whole journey or a cancellation are shown; hover gives the full text.
+- The next-departure block adds a line under the sentence when the next train has a
+  cancellation or incident: the summary in bold and the operator's advice.
+- The expanded detail lists every notice in full at the top.
+- On the map a train with a cancellation or incident gets an orange ring.
+- The station state is *disrupted* while any approaching train carries a cancellation or
+  incident, whatever the median says.
+
 ## Next departure
 
 The block on the right answers *when do I leave* in two lines, kept to fixed height on wide
 screens with the tail of a long sentence cut by an ellipsis.
 
-**Line one.** A station-state chip, then the time, then one sentence.
+**Line one.** A station-state chip, the word *Next*, the time, how far away it is, the route.
 
 - The **chip** is a coloured dot and one word for the movement at `from`, from the median
   delay of the last five trains that actually left the station in the past hour, counting
-  only the lines chosen in the filter when one is set: within a
-  minute *running well*, to three *small delays*, to eight *delays*, beyond that *disrupted*;
-  a cancellation at `from` in the past hour or the next half hour is *disrupted* regardless;
-  fewer than three departures and no cancellation *too few trains to say*. Hover or focus
-  shows the five departures and the median.
-- The **time** is when the next train will actually leave `from`: timetable plus its current
-  measured delay, or the timetable alone for an unmeasured train. A train standing at the
-  platform shows **Now** instead. It is set in the display size and dotted-underlined: it is a
-  button.
-- The **sentence**: `R13 to Dal, 7 min late and holding at Lier, platform 4`. The platform is
-  last so it is what the ellipsis eats. Variants: *on time, 2 stops away*; *at your platform*;
-  *starts here*; *timetable only*.
+  only the lines chosen in the filter when one is set: within a minute *running well*, to
+  three *small delays*, to eight *delays*, beyond that *disrupted*; a cancellation at `from`
+  in the past hour or the next half hour, or a cancellation or incident notice on an
+  approaching train, is *disrupted* regardless; fewer than three departures and no
+  cancellation *too few trains to say*. Hover or focus shows the five departures and the
+  median.
+- **Next HH:MM (in N min)**: when the next train will actually leave `from`, timetable plus
+  its measured delay, and the minutes from now, rounded; *due* once that moment has passed
+  without a recording. A train standing at the platform shows **Now** and no minutes. The
+  time is set in the display size and dotted-underlined: it is a button.
+- **Route**: `L1 to Lillestrøm, pl. 3`, then `· 4 min late` only when it is; on time says
+  nothing, *starts here* and *timetable only* for unmeasured trains. Growth, current station
+  and everything else live in the list row.
 
 **Line two.** *Then* and the next two trains as clickable times with their delay in words in
 brackets when over a minute, *timetable* when unmeasured.
@@ -197,7 +216,8 @@ station order.
 Each measured train is a filled circle coloured by its delay, not by its line: soft green
 within a minute, yellow-green to two, amber to five, orange to ten, red beyond, cool blue
 when early. At rest the label is the line code only, *R14*; colour and position already say
-how late. Hovering expands it to line, destination, delay in words and current station.
+how late. Hovering expands it to line, delay in words and current station; the destination
+stays in the tooltip and the list, the label must not cover neighbouring trains.
 Behind the mark its **trail**: hollow dots at the previous measured stops joined by a faint
 dotted straight line, nearer dots brighter, so a mark reads as a train with footprints, not a
 shape with a tail. A growing delay is a trail leaning away from the track line on the way in.
@@ -344,8 +364,8 @@ they are along the real track, and nothing else.
   departure, dashed ring when due at the next station but not yet recorded. Colour by delay,
   label the line code. Several trains at one point fan out in a small ring around it so none
   hides another. Trains not departed are counted in the note under the map, not drawn.
-- **Hover** expands the label to line, destination, delay in words and where it was last
-  recorded. **Click** opens a panel over the map with line, number, `origin – destination`,
+- **Hover** expands the label to line, delay in words and where it was last recorded;
+  the destination stays in the tooltip. **Click** opens a panel over the map with line, number, `origin – destination`,
   state, timetable departure and platform at `from`, and the same detail as the list; close
   with the cross or a click on the map.
 - The camera fits the corridor and approach once per pair; polls move marks, not the camera.

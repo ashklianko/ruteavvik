@@ -1,5 +1,7 @@
 import type { ArrivalWindow, CorridorTrain, Visible } from '../data/derive.ts'
 import { indexOf } from '../data/derive.ts'
+import { relevantNotices } from '../data/notices.ts'
+import { NoticeTags } from './Notices.tsx'
 import { TrainDetail } from './TrainDetail.tsx'
 import { lineColour } from '../diagram/palette.ts'
 import { delayWords, fmtTime, signed, STATE_WORDS, stopsAway } from '../format.ts'
@@ -70,7 +72,10 @@ function Row({ ct, from, to, windowFor, selected, hovered, onSelect, onHover }: 
             </span>
           )}
         </span>
-        <span className="state">{stateText(ct)}</span>
+        <span className="state">
+          {stateText(ct)}
+          <NoticeTags notices={relevantNotices(ct.train.notices, from, to)} />
+        </span>
       </button>
       {isSel && to && <TrainDetail ct={ct} from={from ?? undefined} to={to} window={windowFor(ct)} />}
     </li>

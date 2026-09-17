@@ -9,6 +9,8 @@ import { MIN_PASSES, segmentKey } from '../data/derive.ts'
 import { positionAlong, stopIndex, subPath, type LonLat, type Pattern } from '../data/geometry.ts'
 import { BAND_LABEL, delayColour } from '../diagram/palette.ts'
 import { delayWords, fmtTime, signed, STATE_WORDS } from '../format.ts'
+import { relevantNotices } from '../data/notices.ts'
+import { NoticeTags } from '../ui/Notices.tsx'
 import { TrainDetail } from '../ui/TrainDetail.tsx'
 
 interface Props {
@@ -316,9 +318,10 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       el.classList.toggle('tm-sel', selected === id)
       el.style.zIndex = lit ? '3' : '1'
       const label = el.querySelector('.tm-label') as HTMLSpanElement
+      el.classList.toggle('tm-notice', pl.ct.train.notices.some((n) => n.kind === 'cancelled' || n.kind === 'incident'))
       label.textContent =
         lit && s.kind === 'measured'
-          ? `${pl.ct.train.line} to ${pl.ct.train.destination}, ${delayWords(s.delay)}${s.standing ? `, standing at ${s.at}` : pl.moving ? `, left ${s.at}` : `, at ${s.at}`}`
+          ? `${pl.ct.train.line}, ${delayWords(s.delay)}${s.standing ? `, standing at ${s.at}` : pl.moving ? `, left ${s.at}` : `, at ${s.at}`}`
           : pl.ct.train.line
       el.title = `${pl.ct.train.line} ${pl.ct.train.number} to ${pl.ct.train.destination}`
     }
@@ -362,6 +365,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
           </button>
           <p className="map-panel-title">
             <span className="line">{chosen.train.line}</span> <span className="num text-ink-muted">{chosen.train.number}</span> {chosen.train.calls[0]?.station} – {chosen.train.destination}
+            <NoticeTags notices={relevantNotices(chosen.train.notices, from, to)} />
           </p>
           <p className="map-panel-sub">
             {chosen.state.kind === 'measured'

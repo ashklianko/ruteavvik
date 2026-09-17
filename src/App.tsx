@@ -197,6 +197,7 @@ function Corridor({ view }: { view: View }) {
           following={following}
           mood={mood}
           lines={pair.lines}
+          now={wallClock}
           onHover={setHovered}
           onSelect={selectAndReveal}
         />

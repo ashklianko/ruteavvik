@@ -441,7 +441,11 @@ export const MOOD_LABEL: Record<Mood, string> = {
   unknown: 'too few trains to say',
 }
 
-export function stationMood(trains: Train[], station: string, now: number, window = WINDOW_MS): StationMood {
+export function hasIncident(train: Train): boolean {
+  return train.notices.some((n) => n.kind === 'cancelled' || n.kind === 'incident')
+}
+
+export function stationMood(trains: Train[], station: string, now: number, window = WINDOW_MS, incidents = 0): StationMood {
   const since = now - window
   const departed: Array<{ at: number; delay: number }> = []
   let cancelled = 0
@@ -456,9 +460,10 @@ export function stationMood(trains: Train[], station: string, now: number, windo
   }
   departed.sort((a, b) => b.at - a.at)
   const sample = departed.slice(0, 5).map((d) => d.delay)
-  if (sample.length < 3) return { mood: cancelled > 0 ? 'disrupted' : 'unknown', median: null, sample, cancelled }
+  const disrupted = cancelled > 0 || incidents > 0
+  if (sample.length < 3) return { mood: disrupted ? 'disrupted' : 'unknown', median: null, sample, cancelled: cancelled + incidents }
   const sorted = [...sample].sort((a, b) => a - b)
   const median = sorted[Math.floor(sorted.length / 2)]
-  const mood: Mood = cancelled > 0 || median > 480 ? 'disrupted' : median > 180 ? 'delays' : median > 60 ? 'small' : 'well'
-  return { mood, median, sample, cancelled }
+  const mood: Mood = disrupted || median > 480 ? 'disrupted' : median > 180 ? 'delays' : median > 60 ? 'small' : 'well'
+  return { mood, median, sample, cancelled: cancelled + incidents }
 }

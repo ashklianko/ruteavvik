@@ -2,6 +2,7 @@ import type { ArrivalWindow, CorridorTrain } from '../data/derive.ts'
 import { delayAt, indexOf } from '../data/derive.ts'
 import { fmtTime, signed, STATE_WORDS, windowWords } from '../format.ts'
 import { Emblem } from './Emblem.tsx'
+import { NoticeList } from './Notices.tsx'
 
 interface Props {
   ct: CorridorTrain
@@ -20,6 +21,7 @@ export function TrainDetail({ ct, from, to, window }: Props) {
   const remaining = train.calls.slice(current + 1, toIndex + 1)
   return (
     <div className="detail">
+      <NoticeList notices={train.notices} />
       {firstShown > 0 && <p className="detail-note">{firstShown} earlier stops not shown</p>}
       {passed.length > 0 && (
         <table className="detail-table">

@@ -37,3 +37,10 @@ export function windowWords(lower: number, upper: number | null, sample: number,
   if (upper === null) return `${head}${fmtTime(lower)} if it does not catch up`
   return `${head}${fmtTime(lower)}–${fmtTime(upper)}, from the last ${sample} trains`
 }
+
+export function inWords(t: number, now: number): string {
+  const min = Math.round((t - now) / 60_000)
+  if (min <= 0) return 'due'
+  if (min === 1) return 'in 1 min'
+  return `in ${min} min`
+}

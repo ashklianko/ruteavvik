@@ -28,7 +28,24 @@ export interface RawStopCall {
   serviceJourney: { id: string; privateCode: string | null; line: RawLine }
 }
 
+export interface RawText {
+  value: string
+  language: string | null
+}
+
+export interface RawSituation {
+  id: string
+  severity: string | null
+  reportType: string | null
+  summary: RawText[]
+  description: RawText[]
+  advice: RawText[]
+  validityPeriod: { startTime: string | null; endTime: string | null } | null
+  affects: Array<{ __typename: string; stopPlace?: { name: string } | null }>
+}
+
 export interface RawJourneyCall {
+  situations?: RawSituation[]
   aimedDepartureTime: string | null
   actualDepartureTime: string | null
   aimedArrivalTime: string | null
@@ -48,6 +65,7 @@ export interface RawJourney {
   privateCode: string | null
   line: RawLine
   journeyPattern?: { id: string } | null
+  situations?: RawSituation[]
   estimatedCalls: RawJourneyCall[]
 }
 

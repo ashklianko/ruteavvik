@@ -10,6 +10,7 @@ import {
   pickUpstreamRows,
   segmentObservations,
   servesCorridor,
+  hasIncident,
   stationMood,
   trainsAsOf,
   upstreamOrder,
@@ -75,7 +76,8 @@ export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wall
   const headline = useMemo(() => headlineOf(list), [list])
   const axisMax = useMemo(() => pickAxisMax(list.flatMap((c) => (c.state.kind === 'measured' ? [c.state.delay] : []))), [list])
   const moodTrains = useMemo(() => (lines.length ? trains.filter((t) => lines.includes(t.line)) : trains), [trains, lines])
-  const mood = useMemo(() => (fromName && snap ? stationMood(moodTrains, fromName, now) : null), [moodTrains, fromName, now, snap])
+  const incidentCount = useMemo(() => list.filter((c) => c.group === 'approaching' && hasIncident(c.train)).length, [list])
+  const mood = useMemo(() => (fromName && snap ? stationMood(moodTrains, fromName, now, undefined, incidentCount) : null), [moodTrains, fromName, now, snap, incidentCount])
   const following = useMemo(() => {
     const approaching = list.filter((c) => c.group === 'approaching' && !c.cancelled)
     const next = 'train' in headline ? headline.train : approaching[0]
