@@ -117,7 +117,7 @@ service-date trap, the empty-stock arrival trap.
 
 ## Next
 
-1. Deploy to a static host once one is chosen and its CLI is logged in.
+1. ~~Deploy~~ GitHub Pages from `main`, repository public, 2026-09-17.
 2. Keyboard and screen-reader pass, deferred by the owner.
 3. Wide orientation parity: mark clusters and the arrival bracket.
 4. Pick two or three peak recordings from `recordings/` into `public/snapshots/` as the

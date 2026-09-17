@@ -15,7 +15,7 @@ export function snapshotParam(): string | null {
 }
 
 async function loadSnapshot(name: string): Promise<CorridorSnapshot> {
-  const res = await fetch(`/snapshots/${name}.json`)
+  const res = await fetch(`${import.meta.env.BASE_URL}snapshots/${name}.json`)
   if (!res.ok) throw new Error(`snapshot ${name} not found`)
   return (await res.json()) as CorridorSnapshot
 }
