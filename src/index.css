@@ -798,3 +798,44 @@ body {
   pointer-events: none;
   white-space: nowrap;
 }
+
+.skel {
+  display: inline-block;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-spine-dim) 0%, var(--color-spine) 50%, var(--color-spine-dim) 100%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.6s ease-in-out infinite;
+}
+.skel-block {
+  background: linear-gradient(90deg, var(--color-ground-raised) 0%, color-mix(in oklab, var(--color-ground-raised) 60%, var(--color-spine-dim)) 50%, var(--color-ground-raised) 100%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.6s ease-in-out infinite;
+}
+.skel-shape {
+  fill: var(--color-spine-dim);
+  animation: skel-pulse 1.6s ease-in-out infinite;
+}
+@keyframes skel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@keyframes skel-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel,
+  .skel-block,
+  .skel-shape {
+    animation: none;
+  }
+}

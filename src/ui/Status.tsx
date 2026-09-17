@@ -14,7 +14,7 @@ interface Props {
 export function Status({ updatedAt, fetching, error, snapshot, pollMs, now, onRefresh }: Props) {
   const online = useOnline()
   const age = updatedAt ? now - updatedAt : Infinity
-  const state: 'snapshot' | 'offline' | 'stale' | 'live' | 'waiting' = snapshot ? 'snapshot' : !online ? 'offline' : error || age > pollMs * 2.5 ? 'stale' : updatedAt ? 'live' : 'waiting'
+  const state: 'snapshot' | 'offline' | 'stale' | 'live' | 'waiting' = snapshot ? 'snapshot' : !online ? 'offline' : !updatedAt && !error ? 'waiting' : error || age > pollMs * 2.5 ? 'stale' : 'live'
   const nextIn = updatedAt ? Math.max(0, Math.round((updatedAt + pollMs - now) / 1000)) : null
   const text =
     state === 'snapshot'

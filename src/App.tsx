@@ -14,6 +14,7 @@ import { Emblem } from './ui/Emblem.tsx'
 import { Headline } from './ui/Headline.tsx'
 import { Caption } from './ui/Caption.tsx'
 import { Selector } from './ui/Selector.tsx'
+import { DiagramSkeleton, HeadlineSkeleton, ListSkeleton, MapSkeleton } from './ui/Skeleton.tsx'
 import { Status } from './ui/Status.tsx'
 import { TrainList } from './ui/TrainList.tsx'
 
@@ -160,6 +161,7 @@ function Corridor({ view }: { view: View }) {
   }
   const listProps = { list, from: fromName, to: toName, later: visible, windowFor, selected, hovered, onSelect: setSelected, onHover: setHovered }
   const captionProps = { to: toName, window: headlineWindow, lateCount, loaded: Boolean(corridor.dataUpdatedAt), fetching: corridor.isFetching, stationsFailed: stations.isError }
+  const loading = Boolean(fromName && toName) && !snap && !corridor.isError
   const hintText = orientation === 'wide' ? 'On the line means on time. Higher means later, by the minutes on the scale. Tap a train to follow it.' : 'On the line means on time. Drifting right means late, by the minutes on the scale. Tap a train to follow it.'
   const showHint = hint && fromName && toName && list.length > 0
 
@@ -185,6 +187,9 @@ function Corridor({ view }: { view: View }) {
             setPair('from' in next || 'to' in next ? { ...next, lines: [] } : next)
           }}
         />
+        {loading ? (
+          <HeadlineSkeleton />
+        ) : (
         <Headline
           h={headline}
           from={fromName}
@@ -195,6 +200,7 @@ function Corridor({ view }: { view: View }) {
           onHover={setHovered}
           onSelect={selectAndReveal}
         />
+        )}
       </div>
 
       <nav className="mb-3 flex gap-4 text-sm" aria-label="View">
@@ -215,7 +221,10 @@ function Corridor({ view }: { view: View }) {
       </nav>
       {view === 'map' ? (
         fromName && toName ? (
-          <Suspense fallback={<p className="text-sm text-ink-faint">Loading the map.</p>}>
+          loading ? (
+            <MapSkeleton />
+          ) : (
+          <Suspense fallback={<MapSkeleton />}>
             <RouteMap
               from={fromName}
               to={toName}
@@ -234,17 +243,18 @@ function Corridor({ view }: { view: View }) {
               windowFor={windowFor}
             />
           </Suspense>
+          )
         ) : (
           <p className="text-sm text-ink-faint">Pick a pair to see the map.</p>
         )
       ) : view === 'now' && orientation === 'wide' ? (
         <div className="grid flex-1 gap-8 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)]">
           <div className="min-w-0">
-            <SpineH {...diagramProps} narrow={sideBySide} />
+            {loading ? <DiagramSkeleton wide /> : <SpineH {...diagramProps} narrow={sideBySide} />}
             {showHint && <p className="mt-1 text-sm text-ink-muted">{hintText}</p>}
             <Caption {...captionProps} legend="segments" />
           </div>
-          <TrainList {...listProps} />
+          {loading ? <ListSkeleton /> : <TrainList {...listProps} />}
         </div>
       ) : view === 'timeline' ? (
         <>
@@ -286,18 +296,16 @@ function Corridor({ view }: { view: View }) {
             )}
           </div>
           <Caption {...captionProps} legend="timeline" />
-          <div className="max-w-2xl">
-            <TrainList {...listProps} />
-          </div>
+          <div className="max-w-2xl">{loading ? <ListSkeleton /> : <TrainList {...listProps} />}</div>
         </>
       ) : (
         <div className="grid flex-1 gap-8 min-[900px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="min-w-0">
-            <Spine {...diagramProps} compact={compact} />
+            {loading ? <DiagramSkeleton wide={false} /> : <Spine {...diagramProps} compact={compact} />}
             {showHint && <p className="mt-1 text-sm text-ink-muted">{hintText}</p>}
             <Caption {...captionProps} legend="segments" />
           </div>
-          <TrainList {...listProps} />
+          {loading ? <ListSkeleton /> : <TrainList {...listProps} />}
         </div>
       )}
       <Status

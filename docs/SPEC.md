@@ -45,6 +45,10 @@ into the URL as `?from=&to=&lines=`, so a link opens the same pair; the URL wins
 no pair the selector is empty, the diagram shows an empty track line and the headline asks to
 *pick where you are and where you are going*.
 
+While the first answer for a pair is awaited, the next-departure block, the diagram, the
+list and the map show quiet shimmering placeholders in their own shapes, so the page has its
+layout before it has its data; nothing reads as an empty line.
+
 Polling every 20 s while the page is visible; paused when hidden, refetched at once on
 return. A failed poll leaves the previous state on screen; the connection dot says what is
 happening. Time on screen is Europe/Oslo. A `?snapshot=<name>` query loads a recorded response
