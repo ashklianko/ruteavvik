@@ -99,14 +99,32 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       map.addLayer({ id: 'track', type: 'line', source: 'track', paint: { 'line-color': '#3e5660', 'line-width': 2, 'line-opacity': 0.7 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
       map.addLayer({ id: 'segments-glow', type: 'line', source: 'segments', filter: ['get', 'hot'], paint: { 'line-color': ['get', 'colour'], 'line-width': 14, 'line-opacity': 0.35, 'line-blur': 8 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
       map.addLayer({ id: 'segments', type: 'line', source: 'segments', paint: { 'line-color': ['get', 'colour'], 'line-width': ['case', ['get', 'hot'], 5, 3.5], 'line-dasharray': ['case', ['==', ['get', 'band'], 'few'], ['literal', [1, 2]], ['literal', [1, 0]]] }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
-      map.addLayer({ id: 'stations', type: 'circle', source: 'stations', paint: { 'circle-radius': ['case', ['get', 'major'], 4, 2.5], 'circle-color': '#0b1417', 'circle-stroke-color': ['case', ['get', 'here'], '#e6edea', '#8fa3a3'], 'circle-stroke-width': ['case', ['get', 'here'], 2, 1.2] } })
+      map.addLayer({
+        id: 'stations',
+        type: 'circle',
+        source: 'stations',
+        paint: {
+          'circle-radius': ['case', ['get', 'end'], 7, ['get', 'major'], 4, 2.5],
+          'circle-color': ['case', ['get', 'end'], '#e6edea', '#0b1417'],
+          'circle-stroke-color': ['case', ['get', 'end'], '#0b1417', '#8fa3a3'],
+          'circle-stroke-width': ['case', ['get', 'end'], 2.5, 1.2],
+        },
+      })
       map.addLayer({
         id: 'station-labels',
         type: 'symbol',
         source: 'stations',
-        filter: ['get', 'major'],
-        layout: { 'text-field': ['get', 'name'], 'text-size': ['case', ['get', 'here'], 13, 11], 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'], 'text-allow-overlap': false },
-        paint: { 'text-color': ['case', ['get', 'here'], '#e6edea', '#a9baba'], 'text-halo-color': '#0b1417', 'text-halo-width': 1.4 },
+        filter: ['all', ['get', 'major'], ['!', ['get', 'end']]],
+        layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'] },
+        paint: { 'text-color': '#a9baba', 'text-halo-color': '#0b1417', 'text-halo-width': 1.4 },
+      })
+      map.addLayer({
+        id: 'end-labels',
+        type: 'symbol',
+        source: 'stations',
+        filter: ['get', 'end'],
+        layout: { 'text-field': ['get', 'name'], 'text-size': 14, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
+        paint: { 'text-color': '#e6edea', 'text-halo-color': '#0b1417', 'text-halo-width': 1.8 },
       })
       map.on('mousemove', 'segments', (e) => {
         const f = e.features?.[0]
@@ -173,7 +191,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       }
       if (!lonLat) continue
       const major = name === from || name === to || corridor.includes(name) || upstreamRows.indexOf(name) < 4
-      features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: lonLat }, properties: { name, major, here: name === from } })
+      features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: lonLat }, properties: { name, major, here: name === from, end: name === from || name === to } })
     }
     return features
   }, [usedPatterns, upstreamRows, corridor, from, to])

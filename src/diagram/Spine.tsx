@@ -123,7 +123,7 @@ function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: numbe
       x,
       y,
       hollow: false,
-      label: train.line,
+      label: isPinned(state.delay, max) ? `${train.line} ${delayWords(state.delay)}` : train.line,
       sub: null,
       trail,
       pinned: isPinned(state.delay, max),

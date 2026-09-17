@@ -5,8 +5,12 @@ export const AXIS_STEPS = [3, 5, 10, 15] as const
 export type AxisMax = (typeof AXIS_STEPS)[number]
 
 export function axisMax(delaysSeconds: number[]): AxisMax {
-  const worst = Math.max(0, ...delaysSeconds) / 60
-  for (const step of AXIS_STEPS) if (worst * 1.15 <= step) return step
+  const sorted = [...delaysSeconds].filter((d) => d > 0).sort((a, b) => b - a)
+  let worst = sorted[0] ?? 0
+  const second = sorted[1] ?? 0
+  if (sorted.length > 1 && worst > 300 && worst > 2 * second) worst = second
+  const minutes = worst / 60
+  for (const step of AXIS_STEPS) if (minutes * 1.15 <= step) return step
   return 15
 }
 

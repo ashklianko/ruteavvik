@@ -165,8 +165,10 @@ always major. When only local trains serve the pair nothing is minor.
 `x(delay)` is linear from zero to the axis maximum, which adapts to what is on screen: the
 smallest of 3, 5, 10 or 15 minutes that holds the worst measured delay with 15 % headroom.
 On a calm morning the axis is three minutes wide and a one-minute train sits a third of the
-way out; on a bad day it is fifteen. Beyond the maximum the mark pins to the edge with a `»`
-and the label stays exact. Early trains get a small nudge the other way, 4 % of the axis at
+way out; on a bad day it is fifteen. A single outlier does not set the axis: when the worst
+train is more than twice as late as the next and past five minutes, the axis fits the next
+one instead. Beyond the maximum the mark pins to the edge with a `»` and its label carries
+the delay in words, so the outlier stays visible without squeezing everyone else. Early trains get a small nudge the other way, 4 % of the axis at
 −1 min, clamped there. Ticks follow the maximum. The track line stands just past the longest
 station name so the late side gets the width; the early side is a short stub.
 
@@ -309,8 +311,8 @@ they are along the real track, and nothing else.
 - **Track.** Every journey pattern the pair's trains use, drawn faint. The corridor is cut
   station to station and coloured by added delay with the diagram's scale and glow, dashed
   below four passes. Hovering a stretch shows `{A} to {B}: steady, +0:34 over 4 trains`.
-- **Stations.** Dots at the corridor and approach rows, `from` ringed and named brighter;
-  names for the major ones.
+- **Stations.** Dots at the corridor and approach rows; `from` and `to` as large solid
+  white dots with bold names that always show, names for the other major ones.
 - **Trains.** A mark per measured train at its position: solid when recorded at a station or
   standing, a ring when carried along the track by timetable run time since the last recorded
   departure, dashed ring when due at the next station but not yet recorded. Colour by delay,

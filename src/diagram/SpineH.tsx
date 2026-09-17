@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
 import { delayAt, segmentKey, WINDOW_MS } from '../data/derive.ts'
-import { displacement, ticksFor, type AxisMax } from '../data/displacement.ts'
+import { displacement, isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
 import { delayWords, fmtTime, signed } from '../format.ts'
 import { buildLayout, isFar, PAD, yOfCall, type Layout } from './layout.ts'
 import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
@@ -85,12 +85,12 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
           x: xOfY(yOfCall(layout, train, state.index, from ?? '')),
           y: yOfDelay(state.delay),
           hollow: false,
-          label: train.line,
+          label: isPinned(state.delay, axisMax) ? `${train.line} » ${delayWords(state.delay)}` : train.line,
           trail,
         },
       ]
     })
-  }, [list, layout, from, xOfY, yOfDelay])
+  }, [list, layout, from, xOfY, yOfDelay, axisMax])
 
   const labelDy = useMemo(() => {
     const placed: Array<{ x: number; y: number; w: number; h: number }> = marks.map((m) => ({ x: m.x - 8, y: m.y - 8, w: 16, h: 16 }))

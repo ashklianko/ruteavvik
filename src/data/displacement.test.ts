@@ -24,3 +24,10 @@ it('picks the smallest axis that holds the worst delay with headroom', () => {
   expect(axisMax([9000])).toBe(15)
   expect(ticksFor(5)).toEqual([0, 1, 2, 3, 4, 5])
 })
+
+it('lets a single outlier pin to the edge instead of squeezing everyone else', () => {
+  expect(axisMax([60, 90, 1200])).toBe(3)
+  expect(axisMax([60, 700, 1200])).toBe(15)
+  expect(axisMax([1200])).toBe(15)
+  expect(axisMax([200, 250, 420])).toBe(10)
+})
