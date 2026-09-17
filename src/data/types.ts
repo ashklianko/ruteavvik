@@ -14,6 +14,7 @@ export interface RawLine {
 }
 
 export interface RawStopCall {
+  date?: string | null
   aimedDepartureTime: string | null
   actualDepartureTime: string | null
   aimedArrivalTime: string | null
@@ -46,7 +47,14 @@ export interface RawJourney {
   id: string
   privateCode: string | null
   line: RawLine
+  journeyPattern?: { id: string } | null
   estimatedCalls: RawJourneyCall[]
+}
+
+export interface RawPattern {
+  id: string
+  quays: Array<{ stopPlace: { name: string; latitude: number | null; longitude: number | null } }>
+  pointsOnLink: { points: string } | null
 }
 
 export interface CorridorSnapshot {

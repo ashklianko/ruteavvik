@@ -11,6 +11,7 @@ export interface Call {
   cancelled: boolean
   lat: number | null
   lon: number | null
+  platform: string | null
 }
 
 export interface Train {
@@ -18,6 +19,7 @@ export interface Train {
   number: string
   line: string
   destination: string
+  patternId: string | null
   calls: Call[]
 }
 
@@ -29,22 +31,26 @@ export function toTrain(journey: RawJourney, destination: string): Train {
     number: journey.privateCode ?? '',
     line: journey.line.publicCode ?? '',
     destination,
+    patternId: journey.journeyPattern?.id ?? null,
     calls: journey.estimatedCalls
       .filter((c) => c.quay?.stopPlace)
-      .map((c) => ({
+      .map((c, i) => ({
         station: normaliseName(c.quay!.stopPlace.name),
         position: c.stopPositionInPattern,
         aimedDeparture: ms(c.aimedDepartureTime),
         actualDeparture: ms(c.actualDepartureTime),
         aimedArrival: ms(c.aimedArrivalTime),
-        actualArrival: ms(c.actualArrivalTime),
+        actualArrival: i === 0 ? null : ms(c.actualArrivalTime),
         cancelled: c.cancellation,
         lat: c.quay!.stopPlace.latitude ?? null,
         lon: c.quay!.stopPlace.longitude ?? null,
+        platform: c.quay!.publicCode ?? null,
       }))
       .sort((a, b) => a.position - b.position),
   }
 }
+
+export const EXCLUDED_LINES = /^F\d/i
 
 export function trainsFromSnapshot(snap: CorridorSnapshot): Train[] {
   const destinations = new Map<string, string>()
@@ -52,8 +58,10 @@ export function trainsFromSnapshot(snap: CorridorSnapshot): Train[] {
     const text = c.destinationDisplay?.frontText
     if (text && !destinations.has(c.serviceJourney.id)) destinations.set(c.serviceJourney.id, text)
   }
-  return snap.journeys.map((j) => {
-    const fallback = j.estimatedCalls.at(-1)?.quay?.stopPlace.name ?? ''
-    return toTrain(j, destinations.get(j.id) ?? normaliseName(fallback))
-  })
+  return snap.journeys
+    .filter((j) => !EXCLUDED_LINES.test(j.line.publicCode ?? ''))
+    .map((j) => {
+      const fallback = j.estimatedCalls.at(-1)?.quay?.stopPlace.name ?? ''
+      return toTrain(j, destinations.get(j.id) ?? normaliseName(fallback))
+    })
 }

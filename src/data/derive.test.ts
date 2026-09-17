@@ -15,12 +15,14 @@ import {
   pickUpstreamRows,
   segmentObservations,
   stateOf,
+  stationMood,
   trainsAsOf,
   upstreamOrder,
+  upstreamRowCount,
   verdictOf,
   visibleTrains,
 } from './derive.ts'
-import { trainsFromSnapshot, type Call, type Train } from './model.ts'
+import { EXCLUDED_LINES, toTrain, trainsFromSnapshot, type Call, type Train } from './model.ts'
 import type { CorridorSnapshot } from './types.ts'
 
 const T0 = Date.parse('2026-09-16T08:00:00Z')
@@ -38,6 +40,7 @@ function call(station: string, position: number, aimedMin: number, delayS: numbe
     cancelled: false,
     lat: null,
     lon: null,
+    platform: null,
     ...opts,
   }
 }
@@ -48,6 +51,7 @@ function train(id: string, delays: Array<number | null>, stations = ['A', 'B', '
     number: id,
     line: 'L1',
     destination: stations[stations.length - 1],
+    patternId: null,
     calls: stations.map((s, i) => call(s, i, i * 5, delays[i] ?? null)),
   }
 }
@@ -125,7 +129,7 @@ describe('segments', () => {
     const trains = [1, 2, 3, 4].map((i) => train(String(i), [0, 60, 60, null, null, null]))
     const obs = segmentObservations(trains)
     const stats = aggregateSegments(obs, min(20))
-    expect(stats.get('A→B')).toMatchObject({ n: 4, added: 60, band: 'plus1' })
+    expect(stats.get('A→B')).toMatchObject({ n: 4, added: 60, band: 'steady' })
     expect(stats.get('B→C')).toMatchObject({ n: 4, added: 0, band: 'steady' })
     const three = aggregateSegments(segmentObservations(trains.slice(0, 3)), min(20))
     expect(three.get('A→B')?.band).toBe('few')
@@ -135,11 +139,12 @@ describe('segments', () => {
     expect(aggregateSegments(segmentObservations(trains), min(120)).size).toBe(0)
   })
   it('bands by added seconds', () => {
-    expect(bandOf(-30, 4)).toBe('catching-up')
-    expect(bandOf(30, 4)).toBe('steady')
-    expect(bandOf(31, 4)).toBe('plus1')
-    expect(bandOf(150, 4)).toBe('plus2')
-    expect(bandOf(151, 4)).toBe('worse')
+    expect(bandOf(-40, 4)).toBe('catching-up')
+    expect(bandOf(60, 4)).toBe('steady')
+    expect(bandOf(61, 4)).toBe('plus0')
+    expect(bandOf(150, 4)).toBe('plus1')
+    expect(bandOf(240, 4)).toBe('plus2')
+    expect(bandOf(301, 4)).toBe('worse')
     expect(bandOf(999, 3)).toBe('few')
   })
 })
@@ -264,6 +269,13 @@ describe('visibleTrains', () => {
     expect(v.laterCount).toBe(2)
     expect(v.laterUntil).toBe(later.calls[2].aimedArrival)
   })
+  it('drops an unmeasured train whose timetable departure is well in the past', () => {
+    const ghost = train('g', [null, null, null, null, null, null])
+    ghost.calls = ghost.calls.map((c) => shift(c, -20 * 60_000))
+    const fresh = train('f', [null, null, null, null, null, null])
+    const v = visibleTrains(corridorTrains([ghost, fresh], 'C', 'E'), min(10))
+    expect(v.shown.map((c) => c.train.id)).toEqual(['f'])
+  })
 })
 
 describe('trainsAsOf', () => {
@@ -278,5 +290,68 @@ describe('trainsAsOf', () => {
     t.calls[1].actualArrival = t.calls[1].aimedArrival! + 10_000
     expect(stateOf(t, 'C')).toMatchObject({ kind: 'measured', at: 'B', standing: true })
     expect(stateOf(train('2', [0, 5, null]), 'C')).toMatchObject({ standing: false })
+  })
+})
+
+describe('excluded lines', () => {
+  it('drops long-distance F trains but keeps Flytoget', () => {
+    expect(EXCLUDED_LINES.test('F4')).toBe(true)
+    expect(EXCLUDED_LINES.test('F5')).toBe(true)
+    expect(EXCLUDED_LINES.test('FLY1')).toBe(false)
+    expect(EXCLUDED_LINES.test('RE11')).toBe(false)
+  })
+})
+
+describe('origin arrival', () => {
+  it('ignores the recorded arrival at the first stop, which is the empty stock arriving', () => {
+    const t = toTrain(
+      {
+        id: 'x',
+        privateCode: '1',
+        line: { id: 'l', publicCode: 'R13', name: null, transportMode: 'rail' },
+        estimatedCalls: [
+          { aimedDepartureTime: '2026-09-16T10:00:00Z', actualDepartureTime: null, aimedArrivalTime: '2026-09-16T09:59:00Z', actualArrivalTime: '2026-09-16T09:49:00Z', realtime: true, cancellation: false, stopPositionInPattern: 0, quay: { id: 'q', publicCode: '1', stopPlace: { id: 's', name: 'Drammen stasjon' } } },
+          { aimedDepartureTime: '2026-09-16T10:10:00Z', actualDepartureTime: null, aimedArrivalTime: '2026-09-16T10:09:00Z', actualArrivalTime: null, realtime: true, cancellation: false, stopPositionInPattern: 1, quay: { id: 'q2', publicCode: '1', stopPlace: { id: 's2', name: 'Asker stasjon' } } },
+        ],
+      },
+      'Dal',
+    )
+    expect(t.calls[0].actualArrival).toBeNull()
+    expect(stateOf(t, 'Asker')).toEqual({ kind: 'not-departed' })
+  })
+})
+
+describe('stationMood', () => {
+  const at = (delay: number, minutesAgo: number) => {
+    const t = train(`m${delay}-${minutesAgo}`, [0, delay, null], ['A', 'S', 'B'])
+    const shiftBy = min(10) - t.calls[1].aimedDeparture! - minutesAgo * 60_000
+    t.calls = t.calls.map((c) => shift(c, shiftBy))
+    return t
+  }
+  it('needs three departures in the window', () => {
+    expect(stationMood([at(30, 5), at(40, 10)], 'S', min(10)).mood).toBe('unknown')
+  })
+  it('grades by the median delay of the last five departures', () => {
+    expect(stationMood([at(30, 20), at(40, 30), at(20, 40)], 'S', min(10)).mood).toBe('well')
+    expect(stationMood([at(130, 20), at(40, 30), at(200, 40)], 'S', min(10)).mood).toBe('small')
+    expect(stationMood([at(400, 20), at(300, 30), at(200, 40)], 'S', min(10)).mood).toBe('delays')
+    expect(stationMood([at(900, 20), at(600, 30), at(700, 40)], 'S', min(10)).mood).toBe('disrupted')
+  })
+  it('ignores departures older than the window', () => {
+    expect(stationMood([at(30, 5), at(40, 10), at(20, 75)], 'S', min(10)).mood).toBe('unknown')
+  })
+  it('calls a cancellation at the station disrupted', () => {
+    const c = at(0, -5)
+    c.calls[1] = { ...c.calls[1], cancelled: true, actualDeparture: null }
+    expect(stationMood([c, at(30, 5), at(40, 10), at(20, 15)], 'S', min(10)).mood).toBe('disrupted')
+  })
+})
+
+describe('upstreamRowCount', () => {
+  it('shows twice the corridor segments, between four and eight', () => {
+    expect(upstreamRowCount(1)).toBe(4)
+    expect(upstreamRowCount(2)).toBe(4)
+    expect(upstreamRowCount(3)).toBe(6)
+    expect(upstreamRowCount(7)).toBe(8)
   })
 })

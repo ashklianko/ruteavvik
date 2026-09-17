@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { delayAt, indexOf, lastMeasuredIndex, measuredAt } from '../data/derive.ts'
 import type { Train } from '../data/model.ts'
 import { fmtTime, signed } from '../format.ts'
-import { lineColour } from './palette.ts'
+import { delayColour } from './palette.ts'
 
 interface Props {
   from: string
@@ -21,7 +21,7 @@ interface Props {
 }
 
 export const MW = 640
-const LABEL_W = 118
+const LABEL_W = 124
 const PAD_TOP = 44
 const PAD_BOTTOM = 14
 const ROW = 36
@@ -120,7 +120,7 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
       {ticks.map((t) => (
         <g key={t}>
           <line x1={x(t)} y1={PAD_TOP - 6} x2={x(t)} y2={height - PAD_BOTTOM} stroke="var(--color-spine-dim)" strokeWidth={1} />
-          <text x={x(t)} y={PAD_TOP - 14} textAnchor="middle" className="num" fontSize={10} fill="var(--color-ink-faint)">
+          <text x={x(t)} y={PAD_TOP - 14} textAnchor="middle" className="num" fontSize={11} fill="var(--color-ink-faint)">
             {fmtTime(t)}
           </text>
         </g>
@@ -132,7 +132,7 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
         return (
           <g key={s}>
             <line x1={LABEL_W - 4} y1={y} x2={MW - 16} y2={y} stroke={isFrom ? 'var(--color-ink-muted)' : 'var(--color-spine-dim)'} strokeWidth={isFrom ? 1 : 0.5} />
-            <text x={LABEL_W - 12} y={y + 4} textAnchor="end" fontSize={isFrom ? 13 : 12} fontWeight={isFrom ? 500 : 400} fill={isFrom ? 'var(--color-ink)' : 'var(--color-ink-muted)'}>
+            <text x={LABEL_W - 12} y={y + 4} textAnchor="end" fontSize={isFrom ? 14 : 13} fontWeight={isFrom ? 500 : 400} fill={isFrom ? 'var(--color-ink)' : 'var(--color-ink-muted)'}>
               {s}
             </text>
           </g>
@@ -143,7 +143,7 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
         {series.map((s) => {
           const id = s.train.id
           const lit = focusId === id
-          const colour = lineColour(s.train.line)
+          const colour = delayColour(s.last?.delay ?? null)
           return (
             <g key={`tt-${id}`} opacity={dimmed && !lit ? 0.08 : 0.28}>
               {s.timetable.length > 1 && <polyline points={pts(s.timetable)} fill="none" stroke={colour} strokeWidth={1} strokeDasharray="2 3" />}
@@ -153,7 +153,7 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
         {series.map((s) => {
           const id = s.train.id
           const lit = focusId === id
-          const colour = lineColour(s.train.line)
+          const colour = delayColour(s.last?.delay ?? null)
           return (
             <g
               key={id}
@@ -201,7 +201,7 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
       )}
       <g>
         <line x1={x(now)} y1={PAD_TOP - 8} x2={x(now)} y2={height - PAD_BOTTOM} stroke="var(--color-ink)" strokeWidth={1} strokeOpacity={0.7} />
-        <text x={x(now) + 4} y={height - PAD_BOTTOM + 10} className="num" fontSize={10} fill="var(--color-ink-muted)">
+        <text x={x(now) + 4} y={height - PAD_BOTTOM + 10} className="num" fontSize={11} fill="var(--color-ink-muted)">
           now {fmtTime(now)}
         </text>
       </g>

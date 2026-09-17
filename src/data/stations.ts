@@ -2,7 +2,7 @@ import { gql } from './entur.ts'
 import { STOP_PLACES_BY_BBOX } from './queries.ts'
 import type { RawStopPlace } from './types.ts'
 
-export const SCOPE_BBOX = { minLat: 59.55, minLon: 10.3, maxLat: 60.45, maxLon: 11.6 }
+export const SCOPE_BBOX = { minLat: 59.55, minLon: 10.15, maxLat: 60.45, maxLon: 11.6 }
 
 export interface Station {
   name: string

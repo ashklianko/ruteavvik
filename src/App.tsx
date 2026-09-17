@@ -1,22 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
-import { aggregateSegments, arrivalWindow, corridorStations, corridorTrains, headlineOf, officiallyLateCount, pickUpstreamRows, segmentObservations, servesCorridor, trainsAsOf, upstreamOrder, visibleTrains } from './data/derive.ts'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { aggregateSegments, arrivalWindow, corridorStations, corridorTrains, headlineOf, officiallyLateCount, pickUpstreamRows, segmentObservations, servesCorridor, stationMood, trainsAsOf, upstreamOrder, upstreamRowCount, visibleTrains } from './data/derive.ts'
 import type { CorridorTrain } from './data/derive.ts'
 import { trainsFromSnapshot } from './data/model.ts'
-import { snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
+import { POLL_MS, snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
 import { Debug } from './debug/Debug.tsx'
+import { axisMax as pickAxisMax } from './data/displacement.ts'
 import { Marey } from './diagram/Marey.tsx'
+import { familyOf } from './diagram/palette.ts'
 import { Spine } from './diagram/Spine.tsx'
-import { fmtClock, fmtTime, signed } from './format.ts'
+import { SpineH } from './diagram/SpineH.tsx'
+import { usePatterns } from './data/usePatterns.ts'
+
+const RouteMap = lazy(() => import('./map/RouteMap.tsx'))
+import { fmtTime, signed } from './format.ts'
 import { usePair } from './state/pair.ts'
+import { Emblem } from './ui/Emblem.tsx'
 import { Headline } from './ui/Headline.tsx'
 import { Selector } from './ui/Selector.tsx'
+import { Status } from './ui/Status.tsx'
 import { TrainList } from './ui/TrainList.tsx'
 
-type View = 'now' | 'timeline' | 'debug'
+type View = 'now' | 'timeline' | 'map' | 'debug'
+type Orientation = 'wide' | 'tall'
 
 function viewFromHash(): View {
   const h = window.location.hash
-  return h === '#debug' ? 'debug' : h === '#timeline' ? 'timeline' : 'now'
+  return h === '#debug' ? 'debug' : h === '#timeline' ? 'timeline' : h === '#map' ? 'map' : 'now'
 }
 
 function useView(): View {
@@ -29,6 +38,37 @@ function useView(): View {
   return view
 }
 
+const WIDE_MIN = 900
+
+function useOrientation(): [Orientation, () => void, boolean] {
+  const [chosen, setChosen] = useState<Orientation | null>(() => {
+    try {
+      const v = localStorage.getItem('ruteavvik.orientation')
+      return v === 'wide' || v === 'tall' ? v : null
+    } catch {
+      return null
+    }
+  })
+  const [wideScreen, setWideScreen] = useState(() => window.innerWidth >= WIDE_MIN)
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${WIDE_MIN}px)`)
+    const onChange = () => setWideScreen(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  const orientation: Orientation = chosen ?? (wideScreen ? 'wide' : 'tall')
+  const toggle = () => {
+    const next: Orientation = orientation === 'wide' ? 'tall' : 'wide'
+    setChosen(next)
+    try {
+      localStorage.setItem('ruteavvik.orientation', next)
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  return [orientation, toggle, chosen !== null]
+}
+
 export function App() {
   const view = useView()
   if (view === 'debug') return <Debug />
@@ -36,6 +76,7 @@ export function App() {
 }
 
 function Corridor({ view }: { view: View }) {
+  const [orientation, toggleOrientation] = useOrientation()
   const [pair, setPair] = usePair()
   const stations = useStations()
   const snapshot = snapshotParam()
@@ -52,6 +93,13 @@ function Corridor({ view }: { view: View }) {
       return true
     }
   })
+  const reveal = (id: string) =>
+    requestAnimationFrame(() => document.getElementById(`train-${encodeURIComponent(id)}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+  const selectAndReveal = (id: string | null) => {
+    dismissHint()
+    setSelected(id)
+    if (id) reveal(id)
+  }
   const dismissHint = () => {
     if (!hint) return
     setHint(false)
@@ -86,15 +134,38 @@ function Corridor({ view }: { view: View }) {
   const filtered = useMemo(() => (pair.lines.length ? fullList.filter((c) => pair.lines.includes(c.train.line)) : fullList), [fullList, pair.lines])
   const visible = useMemo(() => visibleTrains(filtered, now), [filtered, now])
   const list = visible.shown
-  const corridorRows = useMemo(() => (fromName && toName ? corridorStations(fullList, fromName, toName) : []), [fullList, fromName, toName])
-  const relevant = useMemo(() => fullList.map((c) => c.train), [fullList])
+  const corridorRows = useMemo(() => (fromName && toName ? corridorStations(filtered, fromName, toName) : []), [filtered, fromName, toName])
+  const relevant = useMemo(() => filtered.map((c) => c.train), [filtered])
   const servingAll = useMemo(() => (fromName && toName ? liveTrains.filter((t) => servesCorridor(t, fromName, toName)) : []), [liveTrains, fromName, toName])
   const upOrder = useMemo(() => (fromName ? upstreamOrder(relevant, fromName) : []), [relevant, fromName])
-  const upRows = useMemo(() => (fromName ? pickUpstreamRows(upOrder, relevant, fromName) : []), [upOrder, relevant, fromName])
+  const upRows = useMemo(
+    () => (fromName ? pickUpstreamRows(upOrder, relevant, fromName, upstreamRowCount(Math.max(1, corridorRows.length - 1))) : []),
+    [upOrder, relevant, fromName, corridorRows],
+  )
   const observations = useMemo(() => segmentObservations(trains), [trains])
   const segments = useMemo(() => aggregateSegments(observations, now), [observations, now])
   const mareyRows = useMemo(() => [...upRows].reverse().concat(corridorRows), [upRows, corridorRows])
+  const patterns = usePatterns(view === 'map' ? relevant : [])
+  const minorStations = useMemo(() => {
+    const regional = relevant.filter((t) => familyOf(t.line) === 'regional' || familyOf(t.line) === 'airport')
+    if (regional.length === 0) return new Set<string>()
+    const served = new Set<string>()
+    for (const t of regional) for (const call of t.calls) served.add(call.station)
+    const out = new Set<string>()
+    for (const station of [...upRows, ...corridorRows]) {
+      if (station === fromName || station === toName) continue
+      if (!served.has(station)) out.add(station)
+    }
+    return out
+  }, [relevant, upRows, corridorRows, fromName, toName])
   const headline = useMemo(() => headlineOf(list), [list])
+  const axisMax = useMemo(() => pickAxisMax(list.flatMap((c) => (c.state.kind === 'measured' ? [c.state.delay] : []))), [list])
+  const mood = useMemo(() => (fromName && snap ? stationMood(trains, fromName, now) : null), [trains, fromName, now, snap])
+  const following = useMemo(() => {
+    const approaching = list.filter((c) => c.group === 'approaching' && !c.cancelled)
+    const next = 'train' in headline ? headline.train : approaching[0]
+    return approaching.filter((c) => c !== next).slice(0, 2)
+  }, [list, headline])
   const windowFor = (ct: CorridorTrain) => (toName ? arrivalWindow(ct, toName, trains, now) : null)
   const headlineWindow = 'train' in headline ? windowFor(headline.train) : null
   const lateCount = useMemo(() => officiallyLateCount(trains, now), [trains, now])
@@ -106,26 +177,37 @@ function Corridor({ view }: { view: View }) {
   })()
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 px-4 py-6 sm:px-8">
-      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h1 className="text-lg font-medium tracking-tight">Ruteavvik</h1>
-        <p className="text-sm text-ink-muted">measured, never forecast</p>
+    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-5 px-4 py-6 sm:px-8">
+      <header className="flex justify-center">
+        <a href={window.location.search} className="brand" aria-label="Ruteavvik, home">
+          <Emblem />
+          <span className="wordmark">Ruteavvik</span>
+        </a>
       </header>
 
-      <Selector
-        stations={stations.data ?? []}
-        from={pair.from}
-        to={pair.to}
-        lines={pair.lines}
-        available={available}
-        onChange={(next) => {
-          setSelected(null)
-          dismissHint()
-          setPair(next)
-        }}
-      />
-
-      <Headline h={headline} from={fromName} to={toName} />
+      <div className="grid items-start gap-x-8 gap-y-4 min-[900px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Selector
+          stations={stations.data ?? []}
+          from={pair.from}
+          to={pair.to}
+          lines={pair.lines}
+          available={available}
+          onChange={(next) => {
+            setSelected(null)
+            dismissHint()
+            setPair('from' in next || 'to' in next ? { ...next, lines: [] } : next)
+          }}
+        />
+        <Headline
+          h={headline}
+          from={fromName}
+          to={toName}
+          following={following}
+          mood={mood}
+          onHover={setHovered}
+          onSelect={selectAndReveal}
+        />
+      </div>
 
       <nav className="mb-3 flex gap-4 text-sm" aria-label="View">
             <a href="#" className={`view ${view === 'now' ? 'view-current' : ''}`} aria-current={view === 'now' ? 'page' : undefined}>
@@ -134,10 +216,63 @@ function Corridor({ view }: { view: View }) {
             <a href="#timeline" className={`view ${view === 'timeline' ? 'view-current' : ''}`} aria-current={view === 'timeline' ? 'page' : undefined}>
               Last hour
             </a>
+            <a href="#map" className={`view ${view === 'map' ? 'view-current' : ''}`} aria-current={view === 'map' ? 'page' : undefined}>
+              Map
+            </a>
+            {view === 'now' && (
+              <button type="button" className="view view-toggle" onClick={toggleOrientation} title={orientation === 'wide' ? 'Switch to the vertical layout' : 'Switch to the horizontal layout'}>
+                {orientation === 'wide' ? '⇅ vertical' : '⇆ horizontal'}
+              </button>
+            )}
           </nav>
-      {view === 'timeline' ? (
+      {view === 'map' ? (
+        fromName && toName ? (
+          <Suspense fallback={<p className="text-sm text-ink-faint">Loading the map.</p>}>
+            <RouteMap
+              from={fromName}
+              to={toName}
+              list={list}
+              patterns={patterns.data ?? new Map()}
+              segments={segments}
+              corridor={corridorRows}
+              upstreamRows={upRows}
+              now={now}
+              selected={selected}
+              hovered={hovered}
+              onSelect={setSelected}
+              onHover={setHovered}
+              windowFor={windowFor}
+            />
+          </Suspense>
+        ) : (
+          <p className="text-sm text-ink-faint">Pick a pair to see the map.</p>
+        )
+      ) : view === 'now' && orientation === 'wide' ? (
         <>
-          <div className="grid gap-8 min-[900px]:grid-cols-2">
+          <SpineH
+            from={fromName}
+            to={toName}
+            corridor={corridorRows}
+            upstreamOrder={upOrder}
+            upstreamRows={upRows}
+            list={list}
+            segments={segments}
+            observations={observations}
+            now={now}
+            minor={minorStations}
+            axisMax={axisMax}
+            selected={selected}
+            hovered={hovered}
+            onSelect={selectAndReveal}
+            onHover={setHovered}
+          />
+          <div className="max-w-2xl">
+            <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+          </div>
+        </>
+      ) : view === 'timeline' ? (
+        <>
+          <div className="grid gap-8 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="min-w-0">
               {view === 'timeline' && fromName && toName && (
                           <Marey
@@ -178,6 +313,8 @@ function Corridor({ view }: { view: View }) {
                           trains={trains}
                           segments={segments}
                           observations={observations}
+                          minor={minorStations}
+                          axisMax={axisMax}
                           now={now}
                           selected={selected}
                           hovered={hovered}
@@ -191,11 +328,7 @@ function Corridor({ view }: { view: View }) {
             </div>
           </div>
           <p className="mt-2 text-sm text-ink-faint">
-                      {corridor.isError && corridor.dataUpdatedAt ? (
-                        <>Last update <span className="num">{fmtClock(corridor.dataUpdatedAt)}</span>. Retrying.</>
-                      ) : corridor.isError ? (
-                        'Entur did not answer. Retrying.'
-                      ) : corridor.dataUpdatedAt ? (
+                      {corridor.dataUpdatedAt ? (
                         <>
                           {headlineWindow && (
                             <>
@@ -209,9 +342,7 @@ function Corridor({ view }: { view: View }) {
                               )}
                             </>
                           )}
-                          Updated <span className="num">{fmtClock(snapshot ? liveNow : corridor.dataUpdatedAt)}</span>
-                          {snapshot ? ' from a recorded snapshot' : ''}.{' '}
-                          Solid lines are recorded times, dashed is the timetable, dotted carries the current delay forward. The gap between dashed and solid is the delay.
+                                                      Solid lines are recorded times, dashed is the timetable, dotted carries the current delay forward. The gap between dashed and solid is the delay.
                           {lateCount > 0 && (
                             <>
                               {' '}
@@ -230,7 +361,7 @@ function Corridor({ view }: { view: View }) {
           </div>
         </>
       ) : (
-        <div className="grid flex-1 gap-8 min-[900px]:grid-cols-[3fr_2fr]">
+        <div className="grid flex-1 gap-8 min-[900px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="min-w-0">
             <Spine
                         from={fromName}
@@ -242,6 +373,8 @@ function Corridor({ view }: { view: View }) {
                         trains={trains}
                         segments={segments}
                         observations={observations}
+                        minor={minorStations}
+                        axisMax={axisMax}
                         now={now}
                         selected={selected}
                         hovered={hovered}
@@ -256,11 +389,7 @@ function Corridor({ view }: { view: View }) {
                         <p className="mt-1 text-sm text-ink-muted">On the line means on time. Drifting right means late, by the minutes on the scale. Tap a train to follow it.</p>
                       )}
             <p className="mt-2 text-sm text-ink-faint">
-                        {corridor.isError && corridor.dataUpdatedAt ? (
-                          <>Last update <span className="num">{fmtClock(corridor.dataUpdatedAt)}</span>. Retrying.</>
-                        ) : corridor.isError ? (
-                          'Entur did not answer. Retrying.'
-                        ) : corridor.dataUpdatedAt ? (
+                        {corridor.dataUpdatedAt ? (
                           <>
                             {headlineWindow && (
                               <>
@@ -274,9 +403,7 @@ function Corridor({ view }: { view: View }) {
                                 )}
                               </>
                             )}
-                            Updated <span className="num">{fmtClock(snapshot ? liveNow : corridor.dataUpdatedAt)}</span>
-                            {snapshot ? ' from a recorded snapshot' : ''}.{' '}
-                            Segments coloured by the delay they add, measured over the last hour, grey below four trains.
+                                                        Segments coloured by the delay they add, measured over the last hour, grey below four trains.
                             {lateCount > 0 && (
                               <>
                                 {' '}
@@ -294,6 +421,15 @@ function Corridor({ view }: { view: View }) {
           <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
         </div>
       )}
+      <Status
+        updatedAt={snapshot ? liveNow : corridor.dataUpdatedAt || undefined}
+        fetching={corridor.isFetching}
+        error={corridor.isError}
+        snapshot={snapshot !== null}
+        pollMs={POLL_MS}
+        now={wallClock}
+        onRefresh={() => void corridor.refetch()}
+      />
     </main>
   )
 }

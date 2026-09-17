@@ -1,6 +1,7 @@
 import type { ArrivalWindow, CorridorTrain } from '../data/derive.ts'
 import { delayAt, indexOf } from '../data/derive.ts'
 import { fmtTime, signed } from '../format.ts'
+import { Emblem } from './Emblem.tsx'
 
 interface Props {
   ct: CorridorTrain
@@ -22,16 +23,24 @@ export function TrainDetail({ ct, to, window }: Props) {
       {passed.length > 0 && (
         <table className="detail-table">
           <tbody>
-            {passed.map((c) => {
+            {passed.map((c, i) => {
               const aimed = c.aimedDeparture ?? c.aimedArrival
               const actual = c.actualDeparture ?? c.actualArrival
               const d = delayAt(c)
+              const isNow = i === passed.length - 1
               return (
-                <tr key={c.position}>
+                <tr key={c.position} className={isNow ? 'detail-now' : ''} aria-current={isNow ? 'step' : undefined}>
                   <td>{c.station}</td>
                   <td className="num text-ink-faint">{aimed !== null ? fmtTime(aimed) : ''}</td>
                   <td className="num">{actual !== null ? fmtTime(actual) : ''}</td>
                   <td className="num text-ink-muted">{d !== null ? signed(d) : ''}</td>
+                  <td className="detail-mark">
+                    {isNow && (
+                      <span title={state.kind === 'measured' && state.standing ? 'Standing here' : 'Last recorded here'}>
+                        <Emblem height={11} />
+                      </span>
+                    )}
+                  </td>
                 </tr>
               )
             })}

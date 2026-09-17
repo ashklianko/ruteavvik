@@ -24,6 +24,7 @@ export const BAND_COLOUR: Record<Band, string> = {
   few: 'var(--color-unknown)',
   'catching-up': 'var(--color-early)',
   steady: 'var(--color-spine)',
+  plus0: 'var(--color-late-0)',
   plus1: 'var(--color-late-1)',
   plus2: 'var(--color-late-2)',
   worse: 'var(--color-late-3)',
@@ -33,7 +34,18 @@ export const BAND_LABEL: Record<Band, string> = {
   few: 'too few trains to say',
   'catching-up': 'catching up',
   steady: 'steady',
-  plus1: 'adding about a minute',
-  plus2: 'adding about two minutes',
-  worse: 'adding more than two and a half minutes',
+  plus0: 'adding a minute or so',
+  plus1: 'adding two to three minutes',
+  plus2: 'adding three to five minutes',
+  worse: 'adding more than five minutes',
+}
+
+export function delayColour(seconds: number | null): string {
+  if (seconds === null) return 'var(--color-ink-faint)'
+  if (seconds < -60) return 'var(--color-early)'
+  if (seconds <= 60) return 'var(--color-ontime)'
+  if (seconds <= 120) return 'var(--color-late-0)'
+  if (seconds <= 300) return 'var(--color-late-1)'
+  if (seconds <= 600) return 'var(--color-late-2)'
+  return 'var(--color-late-3)'
 }

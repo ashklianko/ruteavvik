@@ -12,16 +12,21 @@ Ruteavvik shows only what has already been observed.
 
 ## What it shows
 
-**Corridor** — pick two stations. Every approaching train with its measured delay, a
-four-stop trail, whether that delay is growing or shrinking, where the train is right now
-and how many stops away. Expanding a train shows the stops it has passed with real recorded
-times, then the remaining stops with the current delay carried forward unchanged — labelled
-as arithmetic, not prediction.
+Pick two stations. The **Now** view is a diagram of the line between them as it is at this
+moment: stations along one axis, your station as a line across it, each train a mark whose
+distance from the line of track is its measured delay, coloured green to red by minutes, with
+footprints over its last stops. The next train's real departure time and platform sit at the
+top, with a one-word state of the station from what the last five trains actually did. The
+corridor ahead is coloured by the delay each stretch *adds*, measured on the trains that just
+went through it. A list beside the diagram carries the same facts in words, and each train
+expands into its recorded and carried-forward times.
 
-**Network** — the map colours each segment by the delay it *adds* to trains passing
-through it, measured from trains that already went by in the last hour. Carried delay is a
-symptom; added delay is the cause. Measured on a random Tuesday afternoon:
-`Oslo S → Nationaltheatret, +1:49 per train, eleven trains in a row`.
+**Last hour** is a time chart of the same trains, recorded times solid and timetable dashed;
+drag along it and the whole page rewinds. **Map** puts the pair's trains on the real track on
+a dark basemap.
+
+Everything shown is recorded or arithmetic on a record and the timetable, labelled as such.
+Nothing repeats the operator's forecast.
 
 ## Running it
 
@@ -50,3 +55,4 @@ stream continuously, which `collect.py` does.
 - [docs/DATA.md](docs/DATA.md) — what the Entur API actually gives, verified, with its traps
 - [docs/DECISIONS.md](docs/DECISIONS.md) — what was decided and why
 - [docs/MILESTONES.md](docs/MILESTONES.md) — the two-day plan and its cut order
+- [docs/LICENSES.md](docs/LICENSES.md) — third-party assets

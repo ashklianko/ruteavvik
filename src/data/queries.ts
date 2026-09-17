@@ -11,7 +11,7 @@ query($id: String!, $start: DateTime!, $range: Int!) {
   stopPlace(id: $id) {
     id name
     estimatedCalls(startTime: $start, timeRange: $range, numberOfDepartures: 300, whiteListedModes: [rail]) {
-      aimedDepartureTime actualDepartureTime aimedArrivalTime actualArrivalTime
+      date aimedDepartureTime actualDepartureTime aimedArrivalTime actualArrivalTime
       realtime cancellation predictionInaccurate stopPositionInPattern
       quay { id publicCode }
       destinationDisplay { frontText }
@@ -20,17 +20,34 @@ query($id: String!, $start: DateTime!, $range: Int!) {
   }
 }`
 
-const JOURNEY_FIELDS = `
+const journeyFields = (date: string | null) => `
   id privateCode line { id publicCode name transportMode }
-  estimatedCalls {
+  journeyPattern { id }
+  estimatedCalls${date ? `(date: ${JSON.stringify(date)})` : ''} {
     aimedDepartureTime actualDepartureTime aimedArrivalTime actualArrivalTime
     realtime cancellation stopPositionInPattern
     quay { id publicCode stopPlace { id name latitude longitude } }
   }`
 
-export function journeysBatchQuery(ids: string[]): string {
-  const fields = ids
-    .map((id, i) => `j${i}: serviceJourney(id: ${JSON.stringify(id)}) {${JOURNEY_FIELDS}}`)
+export interface JourneyRef {
+  id: string
+  date: string | null
+}
+
+export function journeysBatchQuery(refs: JourneyRef[]): string {
+  const fields = refs
+    .map((r, i) => `j${i}: serviceJourney(id: ${JSON.stringify(r.id)}) {${journeyFields(r.date)}}`)
+    .join('\n')
+  return `{\n${fields}\n}`
+}
+
+export function patternsBatchQuery(journeyIds: string[]): string {
+  const fields = journeyIds
+    .map(
+      (id, i) => `p${i}: serviceJourney(id: ${JSON.stringify(id)}) {
+    journeyPattern { id quays { stopPlace { name latitude longitude } } pointsOnLink { points } }
+  }`,
+    )
     .join('\n')
   return `{\n${fields}\n}`
 }

@@ -1,0 +1,269 @@
+import { useCallback, useMemo, useState } from 'react'
+import type { CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
+import { delayAt, segmentKey, WINDOW_MS } from '../data/derive.ts'
+import { displacement, ticksFor, type AxisMax } from '../data/displacement.ts'
+import { delayWords, fmtTime, signed } from '../format.ts'
+import { buildLayout, isFar, PAD, yOfCall, type Layout } from './layout.ts'
+import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
+
+interface Props {
+  from: string | null
+  to: string | null
+  corridor: string[]
+  upstreamOrder: string[]
+  upstreamRows: string[]
+  list: CorridorTrain[]
+  segments: Map<string, SegmentStat>
+  observations: SegmentObservation[]
+  now: number
+  minor: Set<string>
+  axisMax: AxisMax
+  selected: string | null
+  hovered: string | null
+  onSelect: (id: string | null) => void
+  onHover: (id: string | null) => void
+}
+
+export const HW = 1000
+const HH = 430
+const LEFT = 104
+const RIGHT = 30
+const BASE = 330
+const HALFY = 280
+
+
+export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, minor, axisMax, selected, hovered, onSelect, onHover }: Props) {
+  const [hoverSegment, setHoverSegment] = useState<string | null>(null)
+  const yOfDelay = useCallback((s: number) => BASE - displacement(s, HALFY, axisMax), [axisMax])
+  const empty = !from || !to
+  const layout: Layout = useMemo(
+    () => buildLayout({ corridor: corridor.length ? corridor : [from ?? ''], upstreamOrder, upstreamRows, from: from ?? '', list, minor }),
+    [corridor, upstreamOrder, upstreamRows, list, from, minor],
+  )
+  const xOfY = useMemo(() => {
+    const span = Math.max(1, layout.height - 2 * PAD - 8)
+    const k = (HW - LEFT - RIGHT) / span
+    return (y: number) => LEFT + (y - PAD) * k
+  }, [layout])
+  const focusId = hovered ?? selected
+  const segmentTrains = useMemo(() => {
+    if (!hoverSegment) return null
+    const since = now - WINDOW_MS
+    const m = new Map<string, number>()
+    for (const o of observations) if (segmentKey(o.a, o.b) === hoverSegment && o.at >= since && o.at <= now) m.set(o.trainId, o.added)
+    return m
+  }, [hoverSegment, observations, now])
+  const dimmed = focusId !== null || segmentTrains !== null
+  const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id)
+
+  const marks = useMemo(() => {
+    const notDeparted = list.filter((c) => c.state.kind === 'not-departed')
+    const startsHere = list.filter((c) => c.state.kind === 'starts-here')
+    return list.flatMap((ct) => {
+      const { train, state } = ct
+      if (state.kind === 'not-departed') {
+        if (notDeparted[0] !== ct) return []
+        const call = train.calls.find((c) => c.station === from)
+        const first = call?.aimedDeparture ? fmtTime(call.aimedDeparture) : ''
+        return [{ ct, x: layout.yNotDeparted !== null ? xOfY(layout.yNotDeparted) : LEFT, y: BASE, hollow: true, label: notDeparted.length === 1 ? `${first} not departed` : `${notDeparted.length} not departed`, trail: [] as Array<[number, number]> }]
+      }
+      if (state.kind === 'starts-here') {
+        if (startsHere[0] !== ct) return []
+        return [{ ct, x: xOfY(layout.horizonY), y: BASE, hollow: true, label: startsHere.length === 1 ? `${train.line} starts here` : `${startsHere.length} start here`, trail: [] as Array<[number, number]> }]
+      }
+      const trail: Array<[number, number]> = []
+      for (let i = state.index, n = 0; i >= 0 && n < 4; i--) {
+        const d = delayAt(train.calls[i])
+        if (d === null) continue
+        if (i !== state.index && isFar(layout, train, i, from ?? '')) break
+        trail.unshift([xOfY(yOfCall(layout, train, i, from ?? '')), yOfDelay(d)])
+        n++
+      }
+      return [
+        {
+          ct,
+          x: xOfY(yOfCall(layout, train, state.index, from ?? '')),
+          y: yOfDelay(state.delay),
+          hollow: false,
+          label: train.line,
+          trail,
+        },
+      ]
+    })
+  }, [list, layout, from, xOfY, yOfDelay])
+
+  const labelDy = useMemo(() => {
+    const placed: Array<{ x: number; y: number; w: number; h: number }> = marks.map((m) => ({ x: m.x - 8, y: m.y - 8, w: 16, h: 16 }))
+    const out = new Map<string, number>()
+    const candidates = [-8, 18, -22, 32]
+    const sorted = [...marks].filter((m) => m.label).sort((a, b) => a.x - b.x || a.y - b.y)
+    for (const m of sorted) {
+      const w = m.label.length * 6.6
+      let chosen = candidates[0]
+      for (const dy of candidates) {
+        const rect = { x: m.x + 9, y: m.y + dy - 11, w, h: 13 }
+        if (!placed.some((p) => rect.x < p.x + p.w && p.x < rect.x + rect.w && rect.y < p.y + p.h && p.y < rect.y + rect.h)) {
+          chosen = dy
+          break
+        }
+      }
+      placed.push({ x: m.x + 9, y: m.y + chosen - 11, w, h: 13 })
+      out.set(m.ct.train.id, chosen)
+    }
+    return out
+  }, [marks])
+
+  return (
+    <svg viewBox={`0 0 ${HW} ${HH}`} role="img" aria-label="Line diagram, stations across and delay upwards" className="spine block h-auto w-full max-w-full select-none" onClick={(e) => e.target === e.currentTarget && onSelect(null)}>
+      <defs>
+        <filter id="glow-h" x="-20%" y="-50%" width="140%" height="200%">
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+      </defs>
+
+      {ticksFor(axisMax).map((m) => {
+        const label = m === 0 ? '0' : `+${m}`
+        const y = yOfDelay(m * 60)
+        return (
+          <g key={m}>
+            <line x1={LEFT - 8} y1={y} x2={HW - RIGHT} y2={y} stroke="var(--color-spine-dim)" strokeWidth={m === 0 ? 0 : 0.5} />
+            <line x1={LEFT - 12} y1={y} x2={LEFT - 6} y2={y} stroke="var(--color-ink-faint)" />
+            <text x={LEFT - 16} y={y + 4} textAnchor="end" className="num" fontSize={11} fill="var(--color-ink-faint)">
+              {label}
+            </text>
+          </g>
+        )
+      })}
+      <text x={LEFT - 6} y={yOfDelay(axisMax * 60) - 16} textAnchor="end" fontSize={12} fill="var(--color-ink-muted)">
+        minutes late ↑
+      </text>
+
+      <line x1={LEFT - 8} y1={BASE} x2={HW - RIGHT} y2={BASE} stroke="var(--color-spine)" strokeWidth={3} strokeLinecap="round" />
+
+      {layout.rows.map((row, i) => {
+        if (row.kind !== 'corridor') return null
+        const prev = layout.rows[i - 1]
+        const a = prev.kind === 'corridor' || prev.kind === 'horizon' ? prev.station : null
+        const stat = a ? segments.get(segmentKey(a, row.station)) : undefined
+        const band = stat?.band ?? 'few'
+        const hot = band === 'plus1' || band === 'plus2' || band === 'worse'
+        const key = a ? segmentKey(a, row.station) : ''
+        const active = hoverSegment === key
+        const title = stat && stat.n >= 4 ? `${a} to ${row.station}, ${BAND_LABEL[band]}, ${signed(stat.added)} over ${stat.n} trains` : `${a} to ${row.station}, ${BAND_LABEL.few} (${stat?.n ?? 0} measured)`
+        const x0 = xOfY(prev.y)
+        const x1 = xOfY(row.y)
+        return (
+          <g key={`seg-${row.station}`}>
+            {hot && <line x1={x0} y1={BASE} x2={x1} y2={BASE} stroke={BAND_COLOUR[band]} strokeWidth={active ? 14 : 10} strokeOpacity={active ? 0.7 : 0.45} strokeLinecap="round" filter="url(#glow-h)" />}
+            <line x1={x0} y1={BASE} x2={x1} y2={BASE} stroke={BAND_COLOUR[band]} strokeWidth={band === 'few' ? 2 : band === 'steady' ? 3 : band === 'plus0' ? 4 : 5} strokeDasharray={band === 'few' ? '3 5' : undefined} strokeLinecap="round" />
+            <line
+              x1={x0 + 4}
+              y1={BASE}
+              x2={x1 - 4}
+              y2={BASE}
+              stroke="transparent"
+              strokeWidth={18}
+              tabIndex={stat && stat.n >= 4 ? 0 : -1}
+              aria-label={title}
+              onMouseEnter={() => setHoverSegment(key)}
+              onMouseLeave={() => setHoverSegment(null)}
+              onFocus={() => setHoverSegment(key)}
+              onBlur={() => setHoverSegment(null)}
+            >
+              <title>{title}</title>
+            </line>
+          </g>
+        )
+      })}
+
+      {!empty &&
+        layout.rows.map((row) => {
+          const x = xOfY(row.y)
+          const label = row.kind === 'not-departed' ? 'not departed' : row.kind === 'further' ? 'further out' : row.station
+          const isHorizon = row.kind === 'horizon'
+          const isMinor = row.minor
+          return (
+            <g key={`col-${row.kind}-${'station' in row ? row.station : ''}`}>
+              <line x1={x} y1={BASE - (isMinor ? 3 : 6)} x2={x} y2={BASE + (isMinor ? 3 : 6)} stroke="var(--color-spine)" strokeWidth={1} />
+              {isHorizon && <line x1={x} y1={yOfDelay(axisMax * 60) - 8} x2={x} y2={BASE + 6} stroke="var(--color-ink-muted)" strokeWidth={1} />}
+              <text
+                transform={`translate(${x + 4} ${BASE + 18}) rotate(-45)`}
+                textAnchor="end"
+                fontSize={isHorizon ? 13 : isMinor ? 10 : 12}
+                fontWeight={isHorizon ? 500 : 400}
+                fill={isHorizon ? 'var(--color-ink)' : isMinor ? 'var(--color-ink-faint)' : 'var(--color-ink-muted)'}
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })}
+
+      {!empty && (
+        <>
+          <text x={xOfY(layout.horizonY) - 8} y={yOfDelay(axisMax * 60) - 14} textAnchor="end" fontSize={11} fill="var(--color-ink-faint)">
+            coming towards you
+          </text>
+          <text x={xOfY(layout.horizonY) + 8} y={yOfDelay(axisMax * 60) - 14} fontSize={11} fill="var(--color-ink-faint)">
+            already left, towards {to}
+          </text>
+          <text x={xOfY(layout.horizonY)} y={yOfDelay(axisMax * 60) - 28} textAnchor="middle" fontSize={11} fill="var(--color-ink-muted)">
+            you are here
+          </text>
+        </>
+      )}
+
+      {marks.map((m) => {
+        const id = m.ct.train.id
+        const lit = isLit(id)
+        const colour = delayColour(m.ct.state.kind === 'measured' ? m.ct.state.delay : null)
+        if (m.trail.length < 2) return null
+        return (
+          <g key={`trail-${id}`} opacity={dimmed && !lit ? 0.15 : 1}>
+            <polyline points={m.trail.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke={colour} strokeWidth={1} strokeOpacity={0.35} strokeDasharray="2 4" />
+            {m.trail.slice(0, -1).map(([x, y], i) => (
+              <circle key={i} cx={x} cy={y} r={2.4} fill="var(--color-ground)" stroke={colour} strokeWidth={1.2} strokeOpacity={0.5} />
+            ))}
+          </g>
+        )
+      })}
+
+      {marks.map((m) => {
+        const id = m.ct.train.id
+        const lit = isLit(id)
+        const isSel = selected === id
+        const segAdded = segmentTrains?.get(id)
+        const colour = delayColour(m.ct.state.kind === 'measured' ? m.ct.state.delay : null)
+        return (
+          <a
+            key={id}
+            href={`#train-${encodeURIComponent(id)}`}
+            className="mark"
+            style={{ transform: `translate(${m.x}px, ${m.y}px)`, opacity: dimmed && !lit ? 0.3 : 1 }}
+            onClick={(e) => {
+              e.preventDefault()
+              onSelect(isSel ? null : id)
+            }}
+            onMouseEnter={() => onHover(id)}
+            onMouseLeave={() => onHover(null)}
+          >
+            <title>
+              {m.ct.train.line} {m.ct.train.number} to {m.ct.train.destination}
+            </title>
+            <circle r={14} fill="transparent" />
+            {m.hollow ? <circle r={5} fill="var(--color-ground)" stroke={colour} strokeWidth={1.5} /> : <circle r={isSel || lit ? 7 : 5.5} fill={colour} stroke={isSel ? 'var(--color-ink)' : 'var(--color-ground)'} strokeWidth={1.5} />}
+            {(m.label || lit) && (
+              <text x={m.x > HW - 230 ? -9 : 9} y={labelDy.get(m.ct.train.id) ?? -8} textAnchor={m.x > HW - 230 ? 'end' : 'start'} className="num" fontSize={11} fill={m.hollow ? 'var(--color-ink-faint)' : 'var(--color-ink)'} style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
+                {segAdded !== undefined
+                  ? `${m.ct.train.line} ${signed(segAdded)} here`
+                  : lit && !m.hollow && m.ct.state.kind === 'measured'
+                    ? `${m.ct.train.line} to ${m.ct.train.destination}, ${delayWords(m.ct.state.delay)}, at ${m.ct.state.at}`
+                    : m.label}
+              </text>
+            )}
+          </a>
+        )
+      })}
+    </svg>
+  )
+}

@@ -100,9 +100,13 @@ deduplication:
 ```
 59.78–60.08 N, 10.30–11.10 E   (handoff box)   1780 stops,  48 rail
 59.55–60.45 N, 10.30–11.60 E   (Akershus box)  4522 stops, 100 rail
+59.55–60.45 N, 10.15–11.60 E   (with Drammen)              106 rail
 ```
 
-The Akershus box is the product's scope. It includes Eidsvoll, Eidsvoll verk, Jessheim,
+The westward extension adds Lier, Brakerøya, Drammen, Gulskogen, Hønefoss and Sande.
+Mjøndalen sits at 10.01 E and stays out.
+
+The box with Drammen is the product's scope. It includes Eidsvoll, Eidsvoll verk, Jessheim,
 Kløfta, Oslo lufthavn, Dal, Årnes, Sørumsand, Fetsund, Ski, Ås, Vestby, Langhus, Spikkestad
 and Røyken, and also a dozen stations past the county line: Roa, Lunner, Gran, Jaren,
 Jevnaker, Harestua, Grua, Stryken on Gjøvikbanen; Askim, Mysen, Spydeberg, Slitu, Knapstad,
@@ -117,6 +121,17 @@ multimodal parent (`NSR:StopPlace:59872`, modes rail and bus); journeys referenc
 child (`NSR:StopPlace:337`, `parent` → 59872). Querying `estimatedCalls` on the parent works
 and returns the child id inside every call. Matching by name stays the rule; the parent id
 is what the selector queries with.
+
+**`serviceJourney(id)` without a date means today, and today changes at midnight.** At
+00:01 the same id returned tomorrow's run with no actuals while the train was still rolling
+on yesterday's service date; the diagram emptied out. `EstimatedCall.date` on the stop call
+carries the service date, and the journey query passes it as `estimatedCalls(date:)`.
+Verified 2026-09-17 00:05: without date 31 stops, 0 actuals; with date 31 stops, 27 actuals.
+
+**An origin's recorded arrival is the empty stock arriving.** R13 1647 showed −9:49 at
+Drammen, its first stop, from `actualArrivalTime` alone. Arrival at the origin says nothing
+about departure, so it is dropped; the train stays *not departed yet* until its first
+recorded departure.
 
 **An origin can carry a garbage actual time.** R12 514 at Kongsberg showed
 `actualDepartureTime` 55 minutes *before* the timetable, on a train that had not left. A

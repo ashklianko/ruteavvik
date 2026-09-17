@@ -1,5 +1,5 @@
 import { gql } from './entur.ts'
-import { journeysBatchQuery, STOP_CALLS } from './queries.ts'
+import { journeysBatchQuery, STOP_CALLS, type JourneyRef } from './queries.ts'
 import type { CorridorSnapshot, RawJourney, RawStopCall } from './types.ts'
 
 export const LOOKBACK_MS = 60 * 60_000
@@ -16,10 +16,10 @@ export async function fetchStopCalls(stopPlaceId: string, now: Date): Promise<Ra
   return data.stopPlace?.estimatedCalls ?? []
 }
 
-export async function fetchJourneys(ids: string[]): Promise<RawJourney[]> {
+export async function fetchJourneys(refs: JourneyRef[]): Promise<RawJourney[]> {
   const out: RawJourney[] = []
-  for (let i = 0; i < ids.length; i += BATCH) {
-    const chunk = ids.slice(i, i + BATCH)
+  for (let i = 0; i < refs.length; i += BATCH) {
+    const chunk = refs.slice(i, i + BATCH)
     const data = await gql<Record<string, RawJourney | null>>(journeysBatchQuery(chunk))
     for (const j of Object.values(data)) if (j) out.push(j)
   }
@@ -32,7 +32,11 @@ export async function fetchCorridor(
   now: Date = new Date(),
 ): Promise<CorridorSnapshot> {
   const stopCalls = await fetchStopCalls(from.id, now)
-  const ids = [...new Set(stopCalls.map((c) => c.serviceJourney.id))]
-  const journeys = await fetchJourneys(ids)
+  const refs = new Map<string, JourneyRef>()
+  for (const c of stopCalls) {
+    const key = `${c.serviceJourney.id}@${c.date ?? ''}`
+    if (!refs.has(key)) refs.set(key, { id: c.serviceJourney.id, date: c.date ?? null })
+  }
+  const journeys = await fetchJourneys([...refs.values()])
   return { recordedAt: now.toISOString(), from: from.name, to, stopPlaceId: from.id, stopCalls, journeys }
 }

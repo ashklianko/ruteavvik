@@ -2,7 +2,7 @@ import type { ArrivalWindow, CorridorTrain, Visible } from '../data/derive.ts'
 import { indexOf } from '../data/derive.ts'
 import { TrainDetail } from './TrainDetail.tsx'
 import { lineColour } from '../diagram/palette.ts'
-import { fmtTime, signed, stopsAway } from '../format.ts'
+import { delayWords, fmtTime, signed, stopsAway } from '../format.ts'
 
 interface Props {
   list: CorridorTrain[]
@@ -24,8 +24,8 @@ function stateText(ct: CorridorTrain): React.ReactNode {
   const where = ct.group === 'ahead' ? `past ${s.at}` : s.stopsAway <= 0 ? stopsAway(0, s.standing) : `at ${s.at}, ${stopsAway(s.stopsAway, s.standing)}`
   return (
     <>
-      <span className="num text-ink">{signed(s.delay)}</span> {s.verdict}, {where}
-      {s.trail.length > 1 && <span className="num ml-2 text-ink-faint">{s.trail.map(signed).join('  ')}</span>}
+      <span className="text-ink">{delayWords(s.delay)}</span>, {s.verdict}, {where}
+      {s.trail.length > 1 && <span className="num ml-2 text-ink-muted opacity-80">{s.trail.map(signed).join('  ')}</span>}
     </>
   )
 }
@@ -48,12 +48,19 @@ function Row({ ct, from, to, windowFor, selected, hovered, onSelect, onHover }: 
         onFocus={() => onHover(id)}
         onBlur={() => onHover(null)}
       >
-        <span className="num text-ink-faint">{call?.aimedDeparture ? fmtTime(call.aimedDeparture) : '—'}</span>
+        <span className="num text-ink-muted">{call?.aimedDeparture ? fmtTime(call.aimedDeparture) : '—'}</span>
         <span className="line" style={{ color: lineColour(ct.train.line) }}>
           {ct.train.line}
         </span>
         <span className="num">{ct.train.number}</span>
-        <span className={`truncate ${ct.cancelled ? 'line-through text-ink-faint' : ''}`}>{ct.train.destination}</span>
+        <span className={`truncate ${ct.cancelled ? 'line-through text-ink-faint' : ''}`}>
+          <span className="text-ink-muted">{ct.train.calls[0]?.station}</span> – {ct.train.destination}
+          {call?.platform && (
+            <span className="detail-platform" title={`Platform ${call.platform} at ${from}`}>
+              pl. {call.platform}
+            </span>
+          )}
+        </span>
         <span className="state">{stateText(ct)}</span>
       </button>
       {isSel && to && <TrainDetail ct={ct} to={to} window={windowFor(ct)} />}
@@ -66,7 +73,7 @@ export function TrainList({ list, from, to, later, windowFor, selected, hovered,
   const ahead = list.filter((c) => c.group === 'ahead')
   if (list.length === 0 && later.laterCount === 0) return null
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <ol className="list" aria-label="Approaching trains">
         {approaching.map((ct) => (
           <Row key={ct.train.id} ct={ct} from={from} to={to} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={onSelect} onHover={onHover} />

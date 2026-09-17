@@ -165,7 +165,7 @@ export function segmentObservations(trains: Train[]): SegmentObservation[] {
   return out
 }
 
-export type Band = 'few' | 'catching-up' | 'steady' | 'plus1' | 'plus2' | 'worse'
+export type Band = 'few' | 'catching-up' | 'steady' | 'plus0' | 'plus1' | 'plus2' | 'worse'
 
 export interface SegmentStat {
   a: string
@@ -177,10 +177,11 @@ export interface SegmentStat {
 
 export function bandOf(added: number, n: number): Band {
   if (n < MIN_PASSES) return 'few'
-  if (added < -20) return 'catching-up'
-  if (added <= 30) return 'steady'
-  if (added <= 90) return 'plus1'
-  if (added <= 150) return 'plus2'
+  if (added < -30) return 'catching-up'
+  if (added <= 60) return 'steady'
+  if (added <= 120) return 'plus0'
+  if (added <= 180) return 'plus1'
+  if (added <= 300) return 'plus2'
   return 'worse'
 }
 
@@ -257,7 +258,7 @@ export function arrivalWindow(
 
 export type Headline =
   | { kind: 'none' }
-  | { kind: 'calm'; count: number }
+  | { kind: 'calm'; count: number; train: CorridorTrain }
   | { kind: 'on-time'; train: CorridorTrain; stopsAway: number }
   | { kind: 'late'; train: CorridorTrain; delay: number; verdict: Verdict; at: string }
   | { kind: 'starts-here'; train: CorridorTrain }
@@ -272,7 +273,7 @@ export function headlineOf(list: CorridorTrain[]): Headline {
     measured.length >= 2 &&
     measured.every((c) => c.state.kind === 'measured' && Math.abs(c.state.delay) <= CALM_S)
   )
-    return { kind: 'calm', count: measured.length }
+    return { kind: 'calm', count: measured.length, train: next }
   const s = next.state
   if (s.kind === 'starts-here') return { kind: 'starts-here', train: next }
   if (s.kind === 'not-departed') return { kind: 'not-departed', train: next }
@@ -362,6 +363,10 @@ export function upstreamOrder(trains: Train[], from: string): string[] {
   return [...minutes.keys()].sort((a, b) => measure(a) - measure(b) || a.localeCompare(b, 'nb'))
 }
 
+export function upstreamRowCount(corridorSegments: number, min = 4, max = UPSTREAM_ROWS): number {
+  return Math.max(min, Math.min(max, corridorSegments * 2))
+}
+
 export function pickUpstreamRows(order: string[], trains: Train[], from: string, n = UPSTREAM_ROWS): string[] {
   const score = new Map<string, number>()
   for (const t of trains) {
@@ -384,11 +389,14 @@ export interface Visible {
   laterUntil: number | null
 }
 
+export const STALE_TIMETABLE_MS = 5 * 60_000
+
 export function visibleTrains(list: CorridorTrain[], now: number, horizon = TIMETABLE_HORIZON_MS): Visible {
   const shown: CorridorTrain[] = []
   let laterCount = 0
   let laterUntil: number | null = null
   for (const c of list) {
+    if (c.state.kind !== 'measured' && c.arrivesFrom !== null && c.arrivesFrom < now - STALE_TIMETABLE_MS) continue
     if (c.state.kind === 'measured' || c.arrivesFrom === null || c.arrivesFrom <= now + horizon) {
       shown.push(c)
       continue
@@ -408,4 +416,43 @@ export function trainsAsOf(trains: Train[], at: number): Train[] {
       actualArrival: c.actualArrival !== null && c.actualArrival > at ? null : c.actualArrival,
     })),
   }))
+}
+
+export type Mood = 'well' | 'small' | 'delays' | 'disrupted' | 'unknown'
+
+export interface StationMood {
+  mood: Mood
+  median: number | null
+  sample: number[]
+  cancelled: number
+}
+
+export const MOOD_LABEL: Record<Mood, string> = {
+  well: 'running well',
+  small: 'small delays',
+  delays: 'delays',
+  disrupted: 'disrupted',
+  unknown: 'too few trains to say',
+}
+
+export function stationMood(trains: Train[], station: string, now: number, window = WINDOW_MS): StationMood {
+  const since = now - window
+  const departed: Array<{ at: number; delay: number }> = []
+  let cancelled = 0
+  for (const t of trains) {
+    const call = t.calls[indexOf(t, station)]
+    if (!call) continue
+    if (call.cancelled && call.aimedDeparture !== null && call.aimedDeparture >= since && call.aimedDeparture <= now + 30 * 60_000) cancelled++
+    if (call.actualDeparture === null || call.aimedDeparture === null) continue
+    if (call.actualDeparture < since || call.actualDeparture > now) continue
+    const d = delayAt(call)
+    if (d !== null) departed.push({ at: call.actualDeparture, delay: d })
+  }
+  departed.sort((a, b) => b.at - a.at)
+  const sample = departed.slice(0, 5).map((d) => d.delay)
+  if (sample.length < 3) return { mood: cancelled > 0 ? 'disrupted' : 'unknown', median: null, sample, cancelled }
+  const sorted = [...sample].sort((a, b) => a - b)
+  const median = sorted[Math.floor(sorted.length / 2)]
+  const mood: Mood = cancelled > 0 || median > 480 ? 'disrupted' : median > 180 ? 'delays' : median > 60 ? 'small' : 'well'
+  return { mood, median, sample, cancelled }
 }

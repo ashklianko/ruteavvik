@@ -23,3 +23,9 @@ export function stopsAway(n: number, standing = false): string {
   const away = n === 1 ? '1 stop away' : `${n} stops away`
   return standing ? `standing, ${away}` : away
 }
+
+export function delayWords(seconds: number): string {
+  if (Math.abs(seconds) <= 60) return 'on time'
+  const m = Math.max(1, Math.round(Math.abs(seconds) / 60))
+  return seconds > 0 ? `${m} min late` : `${m} min early`
+}

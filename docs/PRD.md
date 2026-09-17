@@ -1,8 +1,9 @@
 # Ruteavvik — product requirements
 
-**Status:** draft 3 · **Owner:** ashklianko · **Updated:** 2026-09-16
-Supersedes draft 2: connection odds replaced by the arrival window, scope extended to
-Akershus, success rephrased around daily use instead of a demo.
+**Status:** draft 4 · **Owner:** ashklianko · **Updated:** 2026-09-17
+Supersedes draft 3 after the first day of building and a morning peak: describes the two
+orientations, the station state, the connection dot and the map as built, and scope with
+Drammen.
 
 ## The moment
 
@@ -68,37 +69,46 @@ The conflict is structural.
 ### A · The line, as it is right now
 
 Pick `from` → `to`. The pair fixes direction and makes "three stops away" meaningful. Line is
-a filter on top.
+a filter on top, and it also decides which stations are drawn.
 
-The screen is a diagram, not a table: a vertical spine of stations, the user's station drawn
-as a horizon across the full width. Above it, trains approaching; below it, trains already
-past and the stretch the user is about to travel. Delay is encoded as horizontal
-displacement — an on-time train sits on the spine, a late one has drifted off it, and its
-trail over the last stops shows whether the drift is growing or shrinking. A calm line is a
-straight line. A bad morning is visible without reading a single number.
+The screen is a diagram, not a table: stations along one axis, the user's station drawn as a
+line across the full width, trains approaching on one side and already past on the other.
+Delay is encoded as displacement from the line of track: an on-time train sits on it, a late
+one has drifted off, and its footprints over the last stops show whether the drift is growing.
+Colour says the same thing in a second channel, soft green to red by minutes. A calm line is
+a straight line of green marks. A bad morning is visible without reading a number.
 
-- **Approaching trains** — measured delay, four-stop trail, growing / holding / shrinking,
-  current position, stops away, line and train number. Ordered by measured arrival, not
-  timetable. Three honest states, never blended: measured · starts here · not departed yet.
+Two orientations of the same picture: stations across and delay upwards on a wide screen,
+stations down and delay to the right on a phone, with a toggle to override. The delay axis
+adapts to the worst train on screen so a quiet morning is not squeezed against the line.
+
+- **Next departure**, the first thing read: the time the next train will actually leave, in
+  large type, with one sentence of why and the platform; then the two after it. Beside it a
+  one-word **station state**, from what the last five trains actually did at this station.
+- **Approaching trains** — measured delay in words, footprints, growing / holding /
+  shrinking, current position. Ordered by measured arrival, not timetable. Three honest
+  states, never blended: measured · starts here · not departed yet.
 - **Trains ahead of you** — those that already left this station, and what the stretch you
-  are about to travel did to them. Their loss is the best available estimate of yours.
+  are about to travel did to them.
 - **One train, expanded** — stops passed with recorded times, stops remaining with the
-  current delay carried forward.
-- **Headline** — one sentence, no statistics, always present: the next train to `to`, its
-  measured state, and where it is.
+  current delay carried forward, the arrival window.
 
 The diagram is always accompanied by a text list carrying the same facts, so nothing depends
-on reading the picture.
+on reading the picture, and a connection dot says when the data was last refreshed.
 
 ### B · Where it is breaking
 
-- **On your route** — the corridor segments below the horizon are coloured by the delay they
-  are *adding*, measured over trains that passed them in the last hour. Suppressed below four
-  passes; grey is "too few trains", never "healthy".
-- **Across the network** — a map of all rail lines in scope, coloured the same way. Measured
-  on a Tuesday afternoon: `Oslo S → Nationaltheatret, +1:49 per train, eleven trains in a
-  row` — the Oslo tunnel, visible as a cause rather than a rumour. Context and exploration,
-  not the thing you open at 07:38; built last.
+- **On your route** — the corridor segments are coloured by the delay they are *adding*,
+  measured over trains that passed them in the last hour. Suppressed below four passes; grey
+  is "too few trains", never "healthy". Half a minute lost on a stretch is not a delay and
+  stays in the track colour.
+- **Last hour** — a time chart of every train on the pair over the past hundred minutes,
+  recorded times solid, timetable dashed, so the place where every line bends the same way is
+  the cause. Moving along its time axis rewinds the whole page to that moment.
+- **Map** — the pair's trains where they are on the real track, on a dark basemap, the
+  corridor coloured the same way. Measured on a Tuesday afternoon: `Oslo S →
+  Nationaltheatret, +1:49 per train, eleven trains in a row` — the Oslo tunnel, visible as a
+  cause rather than a rumour.
 
 ### C · Your arrival
 
@@ -123,10 +133,12 @@ rather than a utility.
 
 ## Scope
 
-Rail stations inside the bounding box `59.55–60.45 N, 10.30–11.60 E`: Oslo, Bærum, Asker
-and the whole of Akershus, 100 stop places. The box also catches a dozen stations just
-beyond the county line on Gjøvikbanen and Østre linje; they stay, because a pair selector
-handles them and a county boundary would be a second data source for no user benefit.
+Rail stations inside the bounding box `59.55–60.45 N, 10.15–11.60 E`: Oslo, Bærum, Asker,
+the whole of Akershus, and Drammen with the stations up to it, 106 stop places. Long-distance
+`F` trains are excluded; Flytoget is not. The box also
+catches a dozen stations just beyond the county line on Gjøvikbanen and Østre linje, plus
+Hønefoss and Sande; they stay, because a pair selector handles them and a county boundary
+would be a second data source for no user benefit.
 
 ## Out of scope
 
@@ -160,7 +172,8 @@ This is a daily utility, so success is measured on ordinary mornings, not at a d
 
 | risk | severity | mitigation |
 |---|---|---|
-| Displacement misread as position along the track | high | the axis is labelled in minutes on the horizon; the list carries the numbers; the spine is straight and obviously vertical |
+| Displacement misread as position along the track | high | the axis is labelled in minutes; colour repeats the message; *you are here* and the two side labels are permanent; the list carries the words |
+| A first-time viewer does not understand the picture | high | one sentence of explanation on first opening, delays in words not codes, colour by delay not by line; the owner's partner is the test |
 | Quiet morning, everything on the spine | medium | that is the designed green state; the headline says "all N trains within a minute"; B still carries content |
 | Measurements gone after 2–3 h | medium | the product is used in the moment; nothing depends on history |
 | One sick train skews a segment | medium | n ≥ 4, grey below it |

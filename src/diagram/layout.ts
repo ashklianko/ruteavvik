@@ -1,20 +1,21 @@
 import type { CorridorTrain } from '../data/derive.ts'
 import { indexOf } from '../data/derive.ts'
-import { displacement } from '../data/displacement.ts'
+import { displacement, type AxisMax } from '../data/displacement.ts'
 import type { Train } from '../data/model.ts'
 
 export const W = 640
-export const SPINE_X = 214
-export const HALF = 372
+export const SPINE_X = 150
+export const HALF = 460
 export const ROW_H = 44
+export const ROW_MINOR = 24
 export const PAD = 26
 
 export type Row =
-  | { kind: 'not-departed'; y: number }
-  | { kind: 'further'; y: number }
-  | { kind: 'upstream'; y: number; station: string }
-  | { kind: 'horizon'; y: number; station: string }
-  | { kind: 'corridor'; y: number; station: string }
+  | { kind: 'not-departed'; y: number; minor: false }
+  | { kind: 'further'; y: number; minor: false }
+  | { kind: 'upstream'; y: number; station: string; minor: boolean }
+  | { kind: 'horizon'; y: number; station: string; minor: false }
+  | { kind: 'corridor'; y: number; station: string; minor: boolean }
 
 export interface Layout {
   rows: Row[]
@@ -23,6 +24,7 @@ export interface Layout {
   yNotDeparted: number | null
   yFurther: number | null
   shownUpstream: Set<string>
+  beyondRows: (station: string) => boolean
   yOfStation: (station: string) => number | undefined
   yOfUpstream: (station: string) => number
 }
@@ -33,54 +35,78 @@ export interface LayoutInput {
   upstreamRows: string[]
   from: string
   list: CorridorTrain[]
+  minor: Set<string>
 }
 
-export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list }: LayoutInput): Layout {
+export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list, minor }: LayoutInput): Layout {
   const shown = new Set(upstreamRows)
   const lastShownIdx = upstreamRows.length ? upstreamOrder.indexOf(upstreamRows[upstreamRows.length - 1]) : -1
   const anyNotDeparted = list.some((c) => c.state.kind === 'not-departed')
-  const anyFurther = list.some((c) => {
-    if (c.state.kind !== 'measured' || c.group !== 'approaching') return false
-    const idx = upstreamOrder.indexOf(c.state.at)
-    return idx > lastShownIdx || (idx < 0 && c.state.stopsAway > 0)
-  })
+  const farStations = [
+    ...new Set(
+      list
+        .filter((c) => c.state.kind === 'measured' && c.group === 'approaching')
+        .map((c) => (c.state.kind === 'measured' ? c.state.at : ''))
+        .filter((st) => {
+          const idx = upstreamOrder.indexOf(st)
+          return idx > lastShownIdx || idx < 0
+        }),
+    ),
+  ].sort((a, b) => upstreamOrder.indexOf(a) - upstreamOrder.indexOf(b))
+  const anyFurther = farStations.length > 0
+  const furtherSpan = Math.min(3, Math.max(1, farStations.length))
 
   const rows: Row[] = []
   let y = PAD
+  const baseHeight = (minorRow: boolean) => (minorRow ? ROW_MINOR : ROW_H)
+  const upstreamWidth = upstreamRows.reduce((sum, st) => sum + baseHeight(minor.has(st)), 0)
+  const corridorWidth = corridor.slice(1).reduce((sum, st) => sum + baseHeight(minor.has(st)), 0)
+  const stretch = corridorWidth > 0 ? Math.min(2, Math.max(1, upstreamWidth / corridorWidth)) : 1
+  const heightOf = (r: Row) =>
+    r.kind === 'corridor' ? baseHeight(r.minor) * stretch : r.kind === 'horizon' ? (ROW_H * (1 + stretch)) / 2 : r.kind === 'further' ? ROW_H * furtherSpan : baseHeight(r.minor)
   const push = (r: Row) => {
+    const prev = rows[rows.length - 1]
+    if (prev) y += (heightOf(prev) + heightOf(r)) / 2
+    r.y = y
     rows.push(r)
-    y += ROW_H
   }
   let yNotDeparted: number | null = null
   if (anyNotDeparted) {
+    push({ kind: 'not-departed', y, minor: false })
     yNotDeparted = y
-    push({ kind: 'not-departed', y })
   }
   let yFurther: number | null = null
   if (anyFurther) {
+    push({ kind: 'further', y, minor: false })
     yFurther = y
-    push({ kind: 'further', y })
   }
   const upstreamY = new Map<string, number>()
   for (const station of [...upstreamRows].reverse()) {
+    push({ kind: 'upstream', y, station, minor: minor.has(station) })
     upstreamY.set(station, y)
-    push({ kind: 'upstream', y, station })
   }
+  push({ kind: 'horizon', y, station: from, minor: false })
   const horizonY = y
-  push({ kind: 'horizon', y, station: from })
   const stationY = new Map<string, number>([[from, horizonY]])
   for (const station of corridor.slice(1)) {
+    push({ kind: 'corridor', y, station, minor: minor.has(station) })
     stationY.set(station, y)
-    push({ kind: 'corridor', y, station })
   }
 
   const topY = yFurther ?? rows[0]?.y ?? PAD
+  const yOfFar = (station: string): number => {
+    if (yFurther === null || farStations.length <= 1) return topY
+    const rank = farStations.indexOf(station)
+    if (rank < 0) return topY
+    const span = ROW_H * furtherSpan - 16
+    return yFurther + span / 2 - ((rank + 0.5) / farStations.length) * span
+  }
   const yOfUpstream = (station: string): number => {
     const direct = upstreamY.get(station)
     if (direct !== undefined) return direct
     const idx = upstreamOrder.indexOf(station)
-    if (idx < 0) return horizonY
-    if (idx > lastShownIdx) return topY
+    if (idx < 0) return farStations.includes(station) ? yOfFar(station) : horizonY
+    if (idx > lastShownIdx) return yOfFar(station)
     let nearIdx = -1
     let farIdx = Infinity
     for (const s of upstreamRows) {
@@ -95,18 +121,23 @@ export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list 
 
   return {
     rows,
-    height: y - ROW_H + PAD + 8,
+    height: y + PAD + 8,
     horizonY,
     yNotDeparted,
     yFurther,
     shownUpstream: shown,
+    beyondRows: (station) => {
+      if (shown.has(station)) return false
+      const idx = upstreamOrder.indexOf(station)
+      return idx < 0 || idx > lastShownIdx
+    },
     yOfStation: (station) => stationY.get(station),
     yOfUpstream,
   }
 }
 
-export function xOf(delaySeconds: number): number {
-  return SPINE_X + displacement(delaySeconds, HALF)
+export function xOf(delaySeconds: number, max: AxisMax = 15): number {
+  return SPINE_X + displacement(delaySeconds, HALF, max)
 }
 
 export function yOfCall(layout: Layout, train: Train, callIndex: number, from: string): number {
@@ -117,4 +148,10 @@ export function yOfCall(layout: Layout, train: Train, callIndex: number, from: s
     if (y !== undefined) return y
   }
   return layout.horizonY
+}
+
+export function isFar(layout: Layout, train: Train, callIndex: number, from: string): boolean {
+  const fromIndex = indexOf(train, from)
+  if (callIndex >= fromIndex) return false
+  return layout.beyondRows(train.calls[callIndex].station)
 }

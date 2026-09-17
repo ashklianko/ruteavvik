@@ -1,13 +1,13 @@
 # Milestones
 
-**Status:** plan · **Window:** Wed 2026-09-16 → Thu 2026-09-17 · one developer.
+**Status:** M0–M5 built by Thu 2026-09-17 midday · **Window:** Wed 2026-09-16 → Thu 2026-09-17 · one developer.
 
-The diagram is the product; it gets the largest block. If anything slips, the network map is
+The diagram is the product; it gets the largest block. If anything slips, the route map is
 cut first, then the Marey view, then the arrival window, never the spine. Live measurements exist only in the last
 two to three hours, so anything visual is checked against the **07:00–09:00 peak on Thursday**;
 outside that window, checks run on recorded snapshots.
 
-## M0 · Ground — Wed morning
+## M0 · Ground — Wed morning ✔
 
 - Docs closed: PRD draft 3, SPEC draft 2, decisions 9–14, this plan. ✔ in progress
 - Scaffold: Vite + React 19 + TypeScript + Tailwind v4 + Vitest + TanStack Query, `pnpm`.
@@ -17,7 +17,7 @@ outside that window, checks run on recorded snapshots.
 
 **Done when** `pnpm dev` serves an empty spine with the horizon, palette and type in place.
 
-## M1 · Data layer — Wed midday
+## M1 · Data layer — Wed midday ✔
 
 Pure TypeScript, no UI, every function unit-tested against **snapshots**: raw JSON responses
 recorded from the live API and saved to disk unchanged. Nothing is invented; the point is that
@@ -36,7 +36,7 @@ when the morning peak no longer exists.
 **Done when** `pnpm test` is green and a debug route prints the corridor for
 `Sandvika → Oslo S` from live data and from a snapshot, identically.
 
-## M2 · The spine — Wed afternoon → Thu morning peak
+## M2 · The spine — Wed afternoon ✔
 
 - Selector with persistence and swap; line chips.
 - Diagram: rows, horizon with minute scale, displacement, marks in three states, trails,
@@ -48,7 +48,7 @@ when the morning peak no longer exists.
 **Done when** the page is opened at 07:30 Thursday on a phone against real traffic and the
 picture reads without explanation. This is the gate for everything after it.
 
-## M3 · Meaning — Thu
+## M3 · Meaning — Wed evening → Thu morning ✔ except deploy and the keyboard pass
 
 - Segment colouring below the horizon, with hover text. ✔
 - Segment ↔ train link: hovering or focusing a segment highlights the trains that passed it
@@ -62,12 +62,13 @@ picture reads without explanation. This is the gate for everything after it.
 - The argument line under the diagram. ✔
 - Green state reviewed on a calm sample; empty and error states reviewed.
 - Accessibility pass: keyboard order, focus ring, `aria-expanded`, `role="img"` label.
+  Deferred by the owner on 2026-09-16; not before the Thursday peak.
 - Production build deployed to a static host; the URL works on a phone.
 
 **Done when** every sentence in SPEC has a screen it is true on, and the deployed URL is the
 thing the owner opens on Friday morning.
 
-## M4 · The Marey view — Thu, if M3 lands before evening
+## M4 · The Marey view — Wed 12:15 ✔
 
 A second view: time across, corridor stations down, every train a line drawn only through
 its measured times, the timetable as a faint ghost beside it. The gap between ghost and line
@@ -80,12 +81,24 @@ same journeys the corridor already fetches, so no new data.
 
 **Done when** the Oslo tunnel shows as a bend shared by every line on a weekday afternoon.
 
-## M5 · Network map — only if everything above is done
+## M5 · Route map — Thu 00:30–01:30 ✔
 
-- `pointsOnLink` fetch and decode, `d3-geo` projection, fit to viewport.
-- Static coastline and Oslofjord GeoJSON clipped to the scope box, one file under `public/`.
-- Segment colouring with halo, caption, hover.
-- Batched fetch of all in-scope stations; measure the request size and time.
+A third view showing only the chosen pair on a real map, in the manner of togkartet.no but
+for one route and from measured stops only. No new polling: the trains, delays and segment
+statistics are the ones the spine already has.
+
+- MapLibre GL with OpenFreeMap vector tiles, dark style matched to the palette (supersedes
+  decision 11 for this view only; recorded as decision 16).
+- Track geometry from `line.journeyPatterns.pointsOnLink` for the lines serving the pair,
+  decoded and cut into station-to-station pieces, cached in `localStorage`.
+- Corridor segments coloured by added delay, the same scale as the spine. Upstream track drawn
+  plain so the approach is visible.
+- Each train: a filled mark at its last measured stop and a hollow ghost sliding along the
+  track by timetable run time, coloured by line family, labelled with number and delay.
+- Hover and selection shared with the list and the spine.
+
+**Done when** the Oslo tunnel shows as a coloured stretch on the map and a late train's ghost
+visibly crawls along it between polls.
 
 ## Not in this window
 
@@ -93,3 +106,20 @@ same journeys the corridor already fetches, so no new data.
 - CI, tests in the browser, PWA manifest. A manifest is a ten-minute follow-up once the page
   is worth pinning.
 - Any commit or push: each needs explicit instruction.
+
+## What the peak taught, Thu 07:30–11:00
+
+Watched live on a desktop and a phone. Changes made from it: colour by delay instead of by
+line, delays in words, permanent orientation labels, the wide orientation, the adaptive
+axis, the station state chip, the connection dot, origin–destination and platform in the
+list, softer thresholds, F trains dropped, stale timetable slots dropped, the midnight
+service-date trap, the empty-stock arrival trap.
+
+## Next
+
+1. Deploy to a static host once one is chosen and its CLI is logged in.
+2. Keyboard and screen-reader pass, deferred by the owner.
+3. Wide orientation parity: mark clusters and the arrival bracket.
+4. Pick two or three peak recordings from `recordings/` into `public/snapshots/` as the
+   canonical test data and point the tests at them.
+5. Light theme via `prefers-color-scheme` if the dark one fails on a sunny platform.

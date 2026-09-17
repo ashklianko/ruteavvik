@@ -13,7 +13,7 @@ interface Props {
 
 export function Selector({ stations, from, to, lines, available, onChange }: Props) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="selector flex flex-col gap-3">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-2 text-base text-ink-muted">
         <span>From</span>
         <StationInput stations={stations} value={from} exclude={to} placeholder="your station" label="Your station" onChange={(v) => onChange({ from: v })} />
@@ -30,15 +30,24 @@ export function Selector({ stations, from, to, lines, available, onChange }: Pro
           ⇅
         </button>
       </p>
+      {available.length === 1 && (
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
+          <span className="chip chip-static">
+            <span className="dot" style={{ background: lineColour(available[0]) }} />
+            {available[0]}
+          </span>
+          only line on this pair
+        </p>
+      )}
       {available.length > 1 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Lines">
+        <ul className={`flex flex-wrap gap-2 ${lines.length ? 'chips-filtering' : ''}`} aria-label="Lines">
           {available.map((code) => {
             const on = lines.includes(code)
             return (
               <li key={code}>
                 <button
                   type="button"
-                  className="chip"
+                  className={`chip ${on ? 'chip-on' : ''}`}
                   aria-pressed={on}
                   onClick={() => onChange({ lines: on ? lines.filter((l) => l !== code) : [...lines, code] })}
                 >

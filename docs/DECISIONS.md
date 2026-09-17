@@ -97,7 +97,7 @@ confident label. Below three readings the product says *one reading* and claims 
 
 ---
 
-## 9 · Scope box `59.55–60.45 N, 10.30–11.60 E` — Oslo, Bærum, Akershus
+## 9 · Scope box `59.55–60.45 N, 10.15–11.60 E` — Oslo, Bærum, Akershus, Drammen
 
 The Oslo/Bærum box left Eidsvoll, Jessheim, Ski and the whole north and east of Akershus
 outside. Re-measured live on 2026-09-16: the old box yields 48 rail stop places, the new one
@@ -107,6 +107,10 @@ Gjøvikbanen, Indre Østfold on Østre linje.
 **Kept, not pruned.** A county boundary would be a second data source and a maintenance
 burden for no user benefit: a pair selector already handles a long list, and someone in
 Akershus riding to Mysen is still the audience.
+
+**Extended west on 2026-09-16** to 10.15 E so Drammen, Brakerøya, Lier and Gulskogen can be
+chosen as an end of a pair: every regional train through Sandvika comes from there, and the
+owner asked for it. Hønefoss and Sande ride along; 106 stop places.
 
 **Cost.** The network map has to fetch about a hundred stations per poll. The corridor view
 does not care: it fetches one station and the journeys through it.
@@ -164,8 +168,9 @@ that fails does the map alone move to canvas; the diagram does not.
 ## 12 · The three visual questions, closed
 
 **Displacement encodes delay.** Piecewise linear: five minutes take 60 % of the half-width,
-fifteen take the rest, beyond that the mark pins to the edge. Early trains mirror left,
-clamped at two minutes. The horizon carries the minute scale so the axis is never implied.
+fifteen take the rest, beyond that the mark pins to the edge. Early trains were first
+mirrored left and clamped at two minutes; on 2026-09-16 the early side was cut to a 6 % nudge
+at one minute, because trains are rarely early and the late side needed the room. The horizon carries the minute scale so the axis is never implied.
 
 **Vertical spine, flowing down.** Trains enter at the top and travel towards `to` at the
 bottom. Above the horizon rows were first *stops away*, because lines branch upstream and a
@@ -216,3 +221,80 @@ last row it sits in the *further out* gutter.
 
 **Cost.** Two branches read as one column with a seam at the junction. The label on the mark
 carries the truth when the row does not.
+
+---
+
+## 16 · The route map draws on a tile basemap, MapLibre with OpenFreeMap
+
+Decision 11 kept the network map off a basemap. The route map that replaced it shows one
+pair's trains where they physically are, and a train on a bare polyline over nothing is not
+a map. MapLibre GL renders the free OpenFreeMap `dark` vector style, keyless, with
+attribution kept. It loads lazily so the first screen stays at 108 KB gzipped; the map chunk
+is 281 KB more, paid only when the tab is opened.
+
+Geometry comes from `serviceJourney.journeyPattern.pointsOnLink`, fetched once per distinct
+journey pattern the pair's trains use and cached in `localStorage`; the API has no root
+`journeyPattern(id)` query, so a representative journey id is used. Stops are snapped to the
+nearest polyline vertex in running order, a train's position is interpolated along the cut
+between its last recorded stop and the next by timetable run time, and drawn as a ring when
+interpolated and a solid mark when recorded at a station, in the manner of togkartet.no's
+GPS-versus-calculated distinction.
+
+**Cost.** WebGL is required; browsers without it get a sentence and the other two views. A
+third rendering technology beside SVG and HTML. MapLibre 6 ships its worker as a separate
+module that a bundler will not find on its own; it is imported through Vite's worker
+pipeline and handed to `setWorkerUrl`, otherwise tiles and GeoJSON never parse and the map
+stays a black rectangle with markers on it, which is exactly how the first build looked.
+
+---
+
+## 17 · Colour by delay, words instead of codes
+
+The first build coloured marks by line family. A person who had never seen the diagram read
+green as "good" while the train was four minutes late. Colour now encodes delay on every view
+with one scale, soft green through straw, amber and orange to red, and the line lives in the
+label and the chips. `+4:29` read as a clock time; delays are written *4 min late* wherever a
+person reads them, and seconds stay in the trail and the expanded detail. At rest a mark
+carries only its line code: position and colour already say how late.
+
+**Cost.** Two lines of the same family look alike on the diagram. The list and the chips carry
+the line, and hover names it.
+
+---
+
+## 18 · Wide orientation by default on wide screens
+
+Stations across and delay upwards read without explanation: direction of travel is left to
+right, higher is worse. The tall orientation wins on a phone, where stations scroll naturally
+and a horizontal axis would compress sixteen stations into 400 px. So the orientation follows
+the width, 900 px as the line, with a toggle that is remembered and wins over the default.
+Both are one layout turned a quarter turn: the tall layout's row coordinates are mapped onto
+the wide axis, so rows, gutters, minor stations and stretching are shared code.
+
+**Cost.** Station names on the wide axis are set at 45° and get tight on corridors with many
+minor stops.
+
+---
+
+## 19 · Adaptive delay axis, balanced station axis
+
+A fixed 0–15 minute axis squeezed a normal morning, where everything lives within two
+minutes, into a sliver by the track line. The axis now picks the smallest of 3, 5, 10 or 15
+minutes that holds the worst train on screen with headroom. On the station axis, the approach
+gets twice as many rows as the corridor has segments, bounded to four and eight, and a short
+corridor stretches its spacing so the user's station stays near the middle. Trains beyond the
+last row spread through a wider gutter by distance instead of piling on one point, and their
+footprints stop at the first stop without a row.
+
+**Cost.** The axis changes between polls when the worst train crosses a step. Marks move with
+a transition, and the steps are far apart, so it happens rarely.
+
+---
+
+## 20 · Softer thresholds throughout
+
+Thirty seconds is not a delay to a commuter. Marks are green within a minute and straw to
+two; a segment is in the track colour up to a minute added and straw to two; the station
+state calls a median under a minute *running well*. The official punctuality threshold is
+four minutes at the final station, so a scale that shouts at thirty seconds would undermine
+the product's own argument.
