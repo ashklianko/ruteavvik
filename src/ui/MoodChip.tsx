@@ -9,7 +9,7 @@ export function MoodChip({ mood, station }: { mood: StationMood; station: string
       ? `No train has left ${station} in the last hour.`
       : `Last ${mood.sample.length} trains left ${station} ${mood.sample.map(signed).join(', ')}${mood.median !== null ? `, median ${signed(mood.median)}` : ''}${mood.cancelled ? `. ${mood.cancelled} cancelled` : ''}.`
   return (
-    <span className="mood" tabIndex={0} aria-label={`${station} now: ${MOOD_LABEL[mood.mood]}. ${detail}`}>
+    <span className="mood" role="note" tabIndex={0} aria-label={`${station} now: ${MOOD_LABEL[mood.mood]}. ${detail}`}>
       <span className="mood-dot" style={{ background: colour }} />
       <span className="mood-word">{MOOD_LABEL[mood.mood]}</span>
       <span className="mood-card" role="tooltip">

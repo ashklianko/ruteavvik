@@ -161,6 +161,17 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
               key={id}
               className="marey-train"
               data-train={s.train.number}
+              tabIndex={0}
+              role="button"
+              aria-label={`${s.train.line} ${s.train.number} to ${s.train.destination}${s.last ? `, ${signed(s.last.delay)}` : ', not measured'}`}
+              onFocus={() => onHover(id)}
+              onBlur={() => onHover(null)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelect(selected === id ? null : id)
+                }
+              }}
               opacity={dimmed && !lit ? 0.18 : 1}
               onMouseEnter={() => onHover(id)}
               onMouseLeave={() => onHover(null)}

@@ -12,10 +12,11 @@ import { SpineH } from './diagram/SpineH.tsx'
 import { usePatterns } from './data/usePatterns.ts'
 
 const RouteMap = lazy(() => import('./map/RouteMap.tsx'))
-import { fmtTime, signed } from './format.ts'
+import { fmtTime } from './format.ts'
 import { usePair } from './state/pair.ts'
 import { Emblem } from './ui/Emblem.tsx'
 import { Headline } from './ui/Headline.tsx'
+import { Caption } from './ui/Caption.tsx'
 import { Selector } from './ui/Selector.tsx'
 import { Status } from './ui/Status.tsx'
 import { TrainList } from './ui/TrainList.tsx'
@@ -42,7 +43,7 @@ const WIDE_MIN = 900
 
 type OrientationChoice = { orientation: Orientation; wideScreen: boolean }
 
-function useOrientation(): [Orientation, () => void, boolean] {
+function useOrientation(): [Orientation, () => void] {
   const [chosen, setChosen] = useState<OrientationChoice | null>(() => {
     try {
       const raw = localStorage.getItem('ruteavvik.orientation')
@@ -60,8 +61,7 @@ function useOrientation(): [Orientation, () => void, boolean] {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [])
-  const applies = chosen !== null && chosen.wideScreen === wideScreen
-  const orientation: Orientation = applies ? chosen.orientation : wideScreen ? 'wide' : 'tall'
+  const orientation: Orientation = chosen !== null && chosen.wideScreen === wideScreen ? chosen.orientation : wideScreen ? 'wide' : 'tall'
   const toggle = () => {
     const next: OrientationChoice = { orientation: orientation === 'wide' ? 'tall' : 'wide', wideScreen }
     setChosen(next)
@@ -71,7 +71,7 @@ function useOrientation(): [Orientation, () => void, boolean] {
       /* storage unavailable */
     }
   }
-  return [orientation, toggle, applies]
+  return [orientation, toggle]
 }
 
 function useMinWidth(px: number): boolean {
@@ -85,16 +85,6 @@ function useMinWidth(px: number): boolean {
   return ok
 }
 
-function useCompact(): boolean {
-  const [compact, setCompact] = useState(() => window.innerWidth < WIDE_MIN)
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${WIDE_MIN - 1}px)`)
-    const onChange = () => setCompact(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return compact
-}
 
 export function App() {
   const view = useView()
@@ -104,7 +94,7 @@ export function App() {
 
 function Corridor({ view }: { view: View }) {
   const [orientation, toggleOrientation] = useOrientation()
-  const compact = useCompact()
+  const compact = !useMinWidth(WIDE_MIN)
   const sideBySide = useMinWidth(1100)
   const [pair, setPair] = usePair()
   const stations = useStations()
@@ -148,13 +138,12 @@ function Corridor({ view }: { view: View }) {
   }, [])
 
   const snap = corridor.data
-  useEffect(() => {
-    if (snapshot && snap && (pair.from !== snap.from || pair.to !== snap.to)) setPair({ from: snap.from, to: snap.to })
-  }, [snapshot, snap, pair.from, pair.to, setPair])
-  const fromName = snap?.from ?? pair.from
-  const toName = snap?.to ?? pair.to
-  const liveNow = snapshot && snap ? Date.parse(snap.recordedAt) : wallClock
+  const fromName = snapshot ? (snap?.from ?? pair.from) : pair.from
+  const toName = snapshot ? (snap?.to ?? pair.to) : pair.to
+  const coarseClock = Math.floor(wallClock / 10_000) * 10_000
+  const liveNow = snapshot && snap ? Date.parse(snap.recordedAt) : coarseClock
   const now = scrub ?? liveNow
+  const ghostNow = snapshot && snap ? liveNow : scrub ?? wallClock
 
   const liveTrains = useMemo(() => (snap ? trainsFromSnapshot(snap) : []), [snap])
   const trains = useMemo(() => (scrub !== null ? trainsAsOf(liveTrains, scrub) : liveTrains), [liveTrains, scrub])
@@ -165,7 +154,10 @@ function Corridor({ view }: { view: View }) {
   const list = visible.shown
   const corridorRows = useMemo(() => (fromName && toName ? corridorStations(filtered, fromName, toName) : []), [filtered, fromName, toName])
   const relevant = useMemo(() => filtered.map((c) => c.train), [filtered])
-  const servingAll = useMemo(() => (fromName && toName ? liveTrains.filter((t) => servesCorridor(t, fromName, toName)) : []), [liveTrains, fromName, toName])
+  const servingAll = useMemo(
+    () => (fromName && toName ? liveTrains.filter((t) => servesCorridor(t, fromName, toName) && (pair.lines.length === 0 || pair.lines.includes(t.line))) : []),
+    [liveTrains, fromName, toName, pair.lines],
+  )
   const upOrder = useMemo(() => (fromName ? upstreamOrder(relevant, fromName) : []), [relevant, fromName])
   const upRows = useMemo(
     () => (fromName ? pickUpstreamRows(upOrder, relevant, fromName, upstreamRowCount(Math.max(1, corridorRows.length - 1))) : []),
@@ -239,7 +231,7 @@ function Corridor({ view }: { view: View }) {
       </div>
 
       <nav className="mb-3 flex gap-4 text-sm" aria-label="View">
-            <a href="#" className={`view ${view === 'now' ? 'view-current' : ''}`} aria-current={view === 'now' ? 'page' : undefined}>
+            <a href="#now" className={`view ${view === 'now' ? 'view-current' : ''}`} aria-current={view === 'now' ? 'page' : undefined}>
               Now
             </a>
             <a href="#timeline" className={`view ${view === 'timeline' ? 'view-current' : ''}`} aria-current={view === 'timeline' ? 'page' : undefined}>
@@ -266,6 +258,7 @@ function Corridor({ view }: { view: View }) {
               corridor={corridorRows}
               upstreamRows={upRows}
               now={now}
+              ghostNow={ghostNow}
               selected={selected}
               hovered={hovered}
               onSelect={setSelected}
@@ -292,6 +285,7 @@ function Corridor({ view }: { view: View }) {
             minor={minorStations}
             axisMax={axisMax}
             narrow={sideBySide}
+            ariaLabel={ariaLabel}
             selected={selected}
             hovered={hovered}
             onSelect={selectAndReveal}
@@ -300,6 +294,7 @@ function Corridor({ view }: { view: View }) {
           {hint && fromName && toName && list.length > 0 && (
             <p className="mt-1 text-sm text-ink-muted">On the line means on time. Higher means later, by the minutes on the scale. Tap a train to follow it.</p>
           )}
+          <Caption to={toName} window={headlineWindow} lateCount={lateCount} legend="segments" loaded={Boolean(corridor.dataUpdatedAt)} fetching={corridor.isFetching} stationsFailed={stations.isError} />
           </div>
           <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
         </div>
@@ -351,47 +346,17 @@ function Corridor({ view }: { view: View }) {
                           axisMax={axisMax}
                           compact={compact}
                           now={now}
+                          ghostNow={ghostNow}
                           selected={selected}
                           hovered={hovered}
-                          onSelect={(id) => {
-                            dismissHint()
-                            setSelected(id)
-                          }}
+                          onSelect={selectAndReveal}
                           onHover={setHovered}
                           ariaLabel={ariaLabel}
                         />
             </div>
             )}
           </div>
-          <p className="mt-2 text-sm text-ink-faint">
-                      {corridor.dataUpdatedAt ? (
-                        <>
-                          {headlineWindow && (
-                            <>
-                              Next arrives {toName} <span className="num text-ink-muted">{fmtTime(headlineWindow.lower)}</span>
-                              {headlineWindow.upper !== null ? (
-                                <>
-                                  <span className="num text-ink-muted">–{fmtTime(headlineWindow.upper)}</span>, from the last {headlineWindow.sample} trains.{' '}
-                                </>
-                              ) : (
-                                <> if it does not catch up. </>
-                              )}
-                            </>
-                          )}
-                                                      Solid lines are recorded times, dashed is the timetable, dotted carries the current delay forward. The gap between dashed and solid is the delay.
-                          {lateCount > 0 && (
-                            <>
-                              {' '}
-                              In the last hour <span className="num">{lateCount}</span> {lateCount === 1 ? 'train was' : 'trains were'} more than <span className="num">{signed(240)}</span> late at some stop; none of that counts if they recover by the end.
-                            </>
-                          )}
-                        </>
-                      ) : corridor.isFetching ? (
-                        'Asking Entur.'
-                      ) : stations.isError ? (
-                        'Could not load the station list. Reload to try again.'
-                      ) : null}
-                    </p>
+          <Caption to={toName} window={headlineWindow} lateCount={lateCount} legend="timeline" loaded={Boolean(corridor.dataUpdatedAt)} fetching={corridor.isFetching} stationsFailed={stations.isError} />
           <div className="max-w-2xl">
             <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
           </div>
@@ -413,6 +378,7 @@ function Corridor({ view }: { view: View }) {
                         axisMax={axisMax}
                         compact={compact}
                         now={now}
+                        ghostNow={ghostNow}
                         selected={selected}
                         hovered={hovered}
                         onSelect={(id) => {
@@ -425,35 +391,7 @@ function Corridor({ view }: { view: View }) {
             {hint && fromName && toName && list.length > 0 && (
                         <p className="mt-1 text-sm text-ink-muted">On the line means on time. Drifting right means late, by the minutes on the scale. Tap a train to follow it.</p>
                       )}
-            <p className="mt-2 text-sm text-ink-faint">
-                        {corridor.dataUpdatedAt ? (
-                          <>
-                            {headlineWindow && (
-                              <>
-                                Next arrives {toName} <span className="num text-ink-muted">{fmtTime(headlineWindow.lower)}</span>
-                                {headlineWindow.upper !== null ? (
-                                  <>
-                                    <span className="num text-ink-muted">–{fmtTime(headlineWindow.upper)}</span>, from the last {headlineWindow.sample} trains.{' '}
-                                  </>
-                                ) : (
-                                  <> if it does not catch up. </>
-                                )}
-                              </>
-                            )}
-                                                        Segments coloured by the delay they add, measured over the last hour, grey below four trains.
-                            {lateCount > 0 && (
-                              <>
-                                {' '}
-                                In the last hour <span className="num">{lateCount}</span> {lateCount === 1 ? 'train was' : 'trains were'} more than <span className="num">{signed(240)}</span> late at some stop; none of that counts if they recover by the end.
-                              </>
-                            )}
-                          </>
-                        ) : corridor.isFetching ? (
-                          'Asking Entur.'
-                        ) : stations.isError ? (
-                          'Could not load the station list. Reload to try again.'
-                        ) : null}
-                      </p>
+            <Caption to={toName} window={headlineWindow} lateCount={lateCount} legend="segments" loaded={Boolean(corridor.dataUpdatedAt)} fetching={corridor.isFetching} stationsFailed={stations.isError} />
           </div>
           <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
         </div>

@@ -34,18 +34,22 @@ on the right, both holding a fixed height so the diagram never jumps when their 
 Below: the view links `Now`, `Last hour`, `Map`, an orientation toggle on the `Now` view, then
 the chosen view, then the train list. In the bottom right corner sits the connection dot.
 
-Views are hashes: none or `#`, `#timeline`, `#map`; `#debug` prints the derived corridor as
-text. Selection of a train, hover and the line filter are shared by every view.
+Views are hashes: `#now` or none, `#timeline`, `#map`; `#debug` prints the derived corridor
+as text and takes `?from=&to=` with Sandvika → Oslo S as the default. `?style=<name>` on the
+map swaps the OpenFreeMap style, for checking. `localStorage` also holds `ruteavvik.hinted`
+for the first-opening hint, `ruteavvik.orientation` and `ruteavvik.patterns.v1` for track
+geometry. Selection of a train, hover and the line filter are shared by every view.
 
 The pair (`from`, `to`, lines) persists in `localStorage` under `ruteavvik.pair` and mirrors
 into the URL as `?from=&to=&lines=`, so a link opens the same pair; the URL wins on load. With
-no pair the selector is open, the diagram shows an empty track line and the headline asks to
+no pair the selector is empty, the diagram shows an empty track line and the headline asks to
 *pick where you are and where you are going*.
 
 Polling every 20 s while the page is visible; paused when hidden, refetched at once on
 return. A failed poll leaves the previous state on screen; the connection dot says what is
 happening. Time on screen is Europe/Oslo. A `?snapshot=<name>` query loads a recorded response
-from `public/snapshots/` instead of polling and freezes *now* at its recording time.
+from `public/snapshots/` instead of polling and freezes *now* at its recording time; the snapshot's pair is shown
+without being saved as the user's.
 
 ## Data
 
@@ -64,9 +68,10 @@ Per poll:
 3. Trains whose calls do not include `to` after `from` are dropped from the list but still
    feed segment statistics. `F`-coded long-distance trains are dropped entirely; Flytoget
    (`FLY1`) stays.
-4. From every fetched journey, every consecutive pair of stops that both carry a recorded
-   departure becomes one segment observation `delay(B) − delay(A)`, timestamped with the
-   recording at `B`.
+4. From every fetched journey, every consecutive pair of stops where `A` has a recorded
+   departure and `B` any recording becomes one segment observation `delay(B) − delay(A)`,
+   timestamped with the recording at `B`. Recorded times later than the response itself are
+   discarded first: Flytoget publishes them for stops it has not reached.
 
 Traps handled in the model: a recorded arrival at a train's origin is the empty stock arriving
 and is ignored; a departure more than ten minutes early is garbage and is ignored. Cancelled
@@ -96,9 +101,10 @@ screens with the tail of a long sentence cut by an ellipsis.
 
 - The **chip** is a coloured dot and one word for the movement at `from`, from the median
   delay of the last five trains that actually left the station in the past hour: within a
-  minute *running well*, to three *small delays*, to eight *delays*, beyond that or with a
-  cancellation *disrupted*, fewer than three departures *too few trains to say*. Hover or
-  focus shows the five departures and the median.
+  minute *running well*, to three *small delays*, to eight *delays*, beyond that *disrupted*;
+  a cancellation at `from` in the past hour or the next half hour is *disrupted* regardless;
+  fewer than three departures and no cancellation *too few trains to say*. Hover or focus
+  shows the five departures and the median.
 - The **time** is when the next train will actually leave `from`: timetable plus its current
   measured delay, or the timetable alone for an unmeasured train. A train standing at the
   platform shows **Now** instead. It is set in the display size and dotted-underlined: it is a
@@ -175,8 +181,8 @@ way out; on a bad day it is fifteen. A single outlier does not set the axis: whe
 train is more than twice as late as the next and past five minutes, the axis fits the next
 one instead. Beyond the maximum the mark pins to the edge with a `»` and its label carries
 the delay in words, so the outlier stays visible without squeezing everyone else. Early trains get a small nudge the other way, 4 % of the axis at
-−1 min, clamped there. Ticks follow the maximum. The track line stands just past the longest
-station name so the late side gets the width; the early side is a short stub.
+−1 min, clamped there. Ticks follow the maximum. The track line stands at a fixed position with station names
+right-aligned against it; a name in the row of an early train moves left of the mark.
 
 Displacement never encodes anything but delay; the station axis never encodes anything but
 station order.
@@ -191,8 +197,9 @@ Behind the mark its **trail**: hollow dots at the previous measured stops joined
 dotted straight line, nearer dots brighter, so a mark reads as a train with footprints, not a
 shape with a tail. A growing delay is a trail leaning away from the track line on the way in.
 
-Trains stacked on one station within 20 seconds of each other collapse into one mark with a
-count, *3 trains*, that opens on hover into its members.
+Trains stacked on one station within about ten units of displacement, a few seconds on a
+narrow axis, twenty on the widest, collapse into one mark with a count, *3 trains*, that
+opens on hover into its members. Tall orientation only for now.
 
 Three states, never blended:
 
@@ -200,8 +207,9 @@ Three states, never blended:
   arrival is recorded the train is *standing*, and label, list and headline say so.
 - **starts here** — one hollow mark on the horizon at zero; several such trains share it,
   labelled with their count and the next departure.
-- **not departed yet** — one hollow mark in its gutter labelled with the count and the first
-  timetable time, *3 not departed, first 09:32*; the list names each.
+- **not departed yet** — hollow marks in their gutter: in the tall orientation one per train,
+  each labelled with its timetable time; in the wide one a single mark labelled *3 not
+  departed*. The list names each.
 
 A train that already passed `from` and is between `from` and `to` is drawn on the corridor
 side with the same rules; these are *trains ahead of you*. Trains that already reached `to`
@@ -249,7 +257,9 @@ not necessarily one piece of track.
 
 Until the user has changed the pair or selected a train once, one sentence under the diagram
 says what the picture means: *On the line means on time. Drifting right means late, by the
-minutes on the scale. Tap a train to follow it.* Remembered in `localStorage`.
+minutes on the scale. Tap a train to follow it.*, or *Higher means later* in the wide
+orientation. It goes for good on the first pair, filter or train change, and is not shown
+in the other views. Remembered in `localStorage`.
 
 ### Green state
 
@@ -299,14 +309,15 @@ to say more*. The next train's window also appears in the caption under the diag
 
 ## Last hour
 
-Second view. Time runs across, from 100 minutes ago to 30 minutes ahead, a rule at the
-current time. Stations run down: the same rows as the diagram. Every train serving the pair,
-including those already past `to`, is one line coloured by its last measured delay: solid
+Second view, *Last hour*, though it shows the last hundred minutes so the previous hour's
+trains are complete. Time runs across, from 100 minutes ago to 30 minutes ahead, a rule at
+the current time. Stations run down: the same rows as the diagram. Every train serving the
+pair and passing the line filter, including those already past `to`, is one line coloured by its last measured delay: solid
 through recorded times, a faint dashed twin through the timetable, a dotted continuation
 carrying the current delay forward. The horizontal gap between dashed and solid is the delay.
 
-Hovering or selecting a train, here or in the list, dims the rest and labels it at its last
-recorded stop. **Scrubbing:** moving the pointer along the time axis rewinds the whole page to
+Hovering, focusing or selecting a train, here or in the list, dims the rest and labels it at
+its last recorded stop; trains are keyboard-reachable and Enter selects. **Scrubbing:** moving the pointer along the time axis rewinds the whole page to
 that moment, every recording after it forgotten; the diagram beside the chart, the headline
 and the list show the line as it was then, with the moment named. Leaving the chart returns
 to now. Mouse only.
@@ -320,7 +331,8 @@ they are along the real track, and nothing else.
   station to station and coloured by added delay with the diagram's scale and glow, dashed
   below four passes. Hovering a stretch shows `{A} to {B}: steady, +0:34 over 4 trains`.
 - **Stations.** Dots at the corridor and approach rows; `from` and `to` as large solid
-  white dots with bold names that always show, names for the other major ones.
+  white dots with bold names that always show; names on every corridor station and the four
+  nearest approach stations, dots only for the rest.
 - **Trains.** A mark per measured train at its position: solid when recorded at a station or
   standing, a ring when carried along the track by timetable run time since the last recorded
   departure, dashed ring when due at the next station but not yet recorded. Colour by delay,
@@ -344,9 +356,10 @@ or a snapshot is shown. Hover or focus explains it, *Updated 07:41:12, next in 1
 
 Everything interactive is a real control, reachable by keyboard in document order: inputs,
 buttons, anchors for marks with a `<title>` naming train, delay and station, focusable
-segments with an `aria-label`. Rows carry `aria-expanded`. Focus is never moved on poll.
-Visible focus ring on every control. Both diagrams carry `role="img"` with a summary
-`aria-label`; everything they convey is also in the list. Colour is never the only carrier:
+segments with an `aria-label`, focusable train lines in the time chart. Rows carry
+`aria-expanded`. Focus is never moved on poll. Visible focus ring on every control. The
+diagrams are `role="group"` with a summary `aria-label`, so their focusable children stay
+in the tree; everything they convey is also in the list. Colour is never the only carrier:
 delay is written in words, verdicts are words, the chip has a word. A full keyboard pass is
 deferred, see MILESTONES.
 
@@ -356,6 +369,7 @@ deferred, see MILESTONES.
   deserve a glyph in the list.
 - Gutter rows collapse when empty; whether that jumps too much across polls is still to be
   judged on a real peak.
-- The wide orientation lacks the tall one's mark clusters and arrival bracket.
+- The wide orientation lacks the tall one's mark clusters, arrival bracket, ghost position
+  and the inline segment readout.
 - Station names at 45° in the wide orientation get tight when a corridor has many minor
   stops; a hide-when-crowded rule may be needed.

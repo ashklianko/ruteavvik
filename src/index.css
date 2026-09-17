@@ -17,7 +17,6 @@
   --color-early: #5fb7c9;
   --color-ontime: #8fd3a8;
   --color-late-0: #c9cf7a;
-  --color-steady: #2c4048;
   --color-late-1: #d9a441;
   --color-late-2: #e07b39;
   --color-late-3: #d84a3b;
@@ -64,11 +63,6 @@ body {
   .headline {
     margin-top: -0.15rem;
   }
-}
-.headline-then {
-  font-size: 0.9375rem;
-  color: var(--color-ink-faint);
-  max-width: 44ch;
 }
 .headline-then .num {
   color: var(--color-ink-muted);
@@ -366,12 +360,6 @@ body {
 .view-toggle {
   margin-left: auto;
   cursor: pointer;
-}
-.view-disabled,
-.view-disabled:hover {
-  color: var(--color-ink-faint);
-  opacity: 0.55;
-  cursor: default;
 }
 .marey .marey-train {
   cursor: pointer;

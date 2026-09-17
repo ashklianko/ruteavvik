@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
-import { delayAt, segmentKey, WINDOW_MS } from '../data/derive.ts'
+import { delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
 import { displacement, isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
 import { delayWords, fmtTime, signed } from '../format.ts'
 import { buildLayout, isFar, PAD, yOfCall, type Layout } from './layout.ts'
@@ -19,6 +19,8 @@ interface Props {
   minor: Set<string>
   axisMax: AxisMax
   narrow?: boolean
+  ghostNow?: number
+  ariaLabel?: string
   selected: string | null
   hovered: string | null
   onSelect: (id: string | null) => void
@@ -29,7 +31,7 @@ const FULL = { HW: 1000, HH: 430, LEFT: 104, RIGHT: 30, BASE: 330, HALFY: 280 }
 const NARROW = { HW: 1000, HH: 560, LEFT: 104, RIGHT: 30, BASE: 450, HALFY: 400 }
 
 
-export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, minor, axisMax, narrow = false, selected, hovered, onSelect, onHover }: Props) {
+export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, minor, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
   const { HW, HH, LEFT, RIGHT, BASE, HALFY } = narrow ? NARROW : FULL
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
   const yOfDelay = useCallback((s: number) => BASE - displacement(s, HALFY, axisMax), [axisMax, BASE, HALFY])
@@ -112,7 +114,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
   }, [marks])
 
   return (
-    <svg viewBox={`0 0 ${HW} ${HH}`} role="img" aria-label="Line diagram, stations across and delay upwards" className="spine block h-auto w-full max-w-full select-none" onClick={(e) => e.target === e.currentTarget && onSelect(null)}>
+    <svg viewBox={`0 0 ${HW} ${HH}`} role="group" aria-label={ariaLabel ?? 'Line diagram, stations across and delay upwards'} className="spine block h-auto w-full max-w-full select-none" onClick={(e) => e.target === e.currentTarget && onSelect(null)}>
       <defs>
         <filter id="glow-h" x="-20%" y="-50%" width="140%" height="200%">
           <feGaussianBlur stdDeviation="5" />
@@ -147,11 +149,11 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
         const hot = band === 'plus1' || band === 'plus2' || band === 'worse'
         const key = a ? segmentKey(a, row.station) : ''
         const active = hoverSegment === key
-        const title = stat && stat.n >= 4 ? `${a} to ${row.station}, ${BAND_LABEL[band]}, ${signed(stat.added)} over ${stat.n} trains` : `${a} to ${row.station}, ${BAND_LABEL.few} (${stat?.n ?? 0} measured)`
+        const title = stat && stat.n >= MIN_PASSES ? `${a} to ${row.station}, ${BAND_LABEL[band]}, ${signed(stat.added)} over ${stat.n} trains` : `${a} to ${row.station}, ${BAND_LABEL.few} (${stat?.n ?? 0} measured)`
         const x0 = xOfY(prev.y)
         const x1 = xOfY(row.y)
         return (
-          <g key={`seg-${row.station}`}>
+          <g key={`seg-${row.station}`} className="segment">
             {hot && <line x1={x0} y1={BASE} x2={x1} y2={BASE} stroke={BAND_COLOUR[band]} strokeWidth={active ? 14 : 10} strokeOpacity={active ? 0.7 : 0.45} strokeLinecap="round" filter="url(#glow-h)" />}
             <line x1={x0} y1={BASE} x2={x1} y2={BASE} stroke={BAND_COLOUR[band]} strokeWidth={band === 'few' ? 2 : band === 'steady' ? 3 : band === 'plus0' ? 4 : 5} strokeDasharray={band === 'few' ? '3 5' : undefined} strokeLinecap="round" />
             <line
@@ -161,7 +163,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
               y2={BASE}
               stroke="transparent"
               strokeWidth={18}
-              tabIndex={stat && stat.n >= 4 ? 0 : -1}
+              tabIndex={stat && stat.n >= MIN_PASSES ? 0 : -1}
               aria-label={title}
               onMouseEnter={() => setHoverSegment(key)}
               onMouseLeave={() => setHoverSegment(null)}
@@ -240,9 +242,12 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
             }}
             onMouseEnter={() => onHover(id)}
             onMouseLeave={() => onHover(null)}
+            onFocus={() => onHover(id)}
+            onBlur={() => onHover(null)}
           >
             <title>
               {m.ct.train.line} {m.ct.train.number} to {m.ct.train.destination}
+              {m.ct.state.kind === 'measured' ? `, ${delayWords(m.ct.state.delay)} at ${m.ct.state.at}` : `, ${m.ct.state.kind === 'starts-here' ? 'starts here' : 'not departed yet'}`}
             </title>
             <circle r={14} fill="transparent" />
             {m.hollow ? <circle r={5} fill="var(--color-ground)" stroke={colour} strokeWidth={1.5} /> : <circle r={isSel || lit ? 7 : 5.5} fill={colour} stroke={isSel ? 'var(--color-ink)' : 'var(--color-ground)'} strokeWidth={1.5} />}

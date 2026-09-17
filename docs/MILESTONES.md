@@ -9,7 +9,7 @@ outside that window, checks run on recorded snapshots.
 
 ## M0 · Ground — Wed morning ✔
 
-- Docs closed: PRD draft 3, SPEC draft 2, decisions 9–14, this plan. ✔ in progress
+- Docs closed: PRD draft 3, SPEC draft 2, decisions 9–14, this plan.
 - Scaffold: Vite + React 19 + TypeScript + Tailwind v4 + Vitest + TanStack Query, `pnpm`.
   D3 modules and `@mapbox/polyline`. Tokens from the visual direction in `@theme`; IBM Plex
   Sans and Mono bundled locally.
@@ -54,9 +54,9 @@ picture reads without explanation. This is the gate for everything after it.
 - Segment ↔ train link: hovering or focusing a segment highlights the trains that passed it
   and shows each one's added delay there; focusing a train dims the rest and draws its
   arrival window as a bracket on the `to` row.
-- Glow under hot segments; trails as smoothed curves fading with age.
+- Glow under hot segments; trails, first as smoothed curves, later as footprint dots.
 - Ghost position: a hollow mark slides from the last measured stop towards the next one by
-  timetable run time and the carried delay, second by second; the measured mark stays put.
+  timetable run time, second by second; the measured mark stays put.
 - Train detail with passed / remaining stops and the carried-forward label.
 - Arrival window in the detail and the caption.
 - The argument line under the diagram. ✔
@@ -75,7 +75,7 @@ its measured times, the timetable as a faint ghost beside it. The gap between gh
 is the delay; where every line bends the same way is the segment adding it. Built from the
 same journeys the corridor already fetches, so no new data.
 
-- Layout and scales, 60–150 minutes of history from the current response.
+- Layout and scales, 100 minutes of history from the current response.
 - Measured polylines, timetable ghosts, current time as a vertical rule.
 - Hover a train to read it; hover a segment to see who lost time there.
 
@@ -89,12 +89,12 @@ statistics are the ones the spine already has.
 
 - MapLibre GL with OpenFreeMap vector tiles, dark style matched to the palette (supersedes
   decision 11 for this view only; recorded as decision 16).
-- Track geometry from `line.journeyPatterns.pointsOnLink` for the lines serving the pair,
-  decoded and cut into station-to-station pieces, cached in `localStorage`.
+- Track geometry from each train's `journeyPattern.pointsOnLink`, decoded and cut into
+  station-to-station pieces, cached in `localStorage` (decision 16).
 - Corridor segments coloured by added delay, the same scale as the spine. Upstream track drawn
   plain so the approach is visible.
-- Each train: a filled mark at its last measured stop and a hollow ghost sliding along the
-  track by timetable run time, coloured by line family, labelled with number and delay.
+- Each train: a filled mark at its last measured stop, a ring when carried along the track
+  by timetable run time, coloured by delay, labelled with the line code (decision 17).
 - Hover and selection shared with the list and the spine.
 
 **Done when** the Oslo tunnel shows as a coloured stretch on the map and a late train's ghost
@@ -103,7 +103,7 @@ visibly crawls along it between polls.
 ## Not in this window
 
 - `collect.py` and any history. Its bbox is the old Oslo/Bærum one; leave it.
-- CI, tests in the browser, PWA manifest. A manifest is a ten-minute follow-up once the page
+- Tests in the browser, PWA manifest. (CI arrived with the Pages workflow, decision 21.) A manifest is a ten-minute follow-up once the page
   is worth pinning.
 - Any commit or push: each needs explicit instruction.
 
@@ -120,7 +120,7 @@ service-date trap, the empty-stock arrival trap.
 1. ~~Deploy~~ Live at https://ashklianko.github.io/ruteavvik/ via GitHub Pages from `main`,
    repository public, 2026-09-17 (decision 21).
 2. Keyboard and screen-reader pass, deferred by the owner.
-3. Wide orientation parity: mark clusters and the arrival bracket.
+3. Wide orientation parity: mark clusters, the arrival bracket, the ghost position.
 4. Pick two or three peak recordings from `recordings/` into `public/snapshots/` as the
    canonical test data and point the tests at them.
 5. Light theme via `prefers-color-scheme` if the dark one fails on a sunny platform.

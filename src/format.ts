@@ -13,10 +13,6 @@ export function signed(seconds: number): string {
   return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`
 }
 
-export function minutesWord(seconds: number): string {
-  const m = Math.round(Math.abs(seconds) / 60)
-  return m === 1 ? '1 min' : `${m} min`
-}
 
 export function stopsAway(n: number, standing = false): string {
   if (n <= 0) return standing ? 'at your platform' : 'at your station'

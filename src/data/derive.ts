@@ -135,7 +135,11 @@ export function corridorTrains(trains: Train[], from: string, to: string): Corri
       }
     })
     .filter((c) => c.group !== 'gone')
-    .sort((a, b) => (a.arrivesFrom ?? Infinity) - (b.arrivesFrom ?? Infinity))
+    .sort((a, b) => {
+      const x = a.arrivesFrom ?? Infinity
+      const y = b.arrivesFrom ?? Infinity
+      return x === y ? 0 : x - y
+    })
 }
 
 export interface SegmentObservation {

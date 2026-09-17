@@ -112,21 +112,23 @@ Akershus riding to Mysen is still the audience.
 chosen as an end of a pair: every regional train through Sandvika comes from there, and the
 owner asked for it. Hønefoss and Sande ride along; 106 stop places.
 
-**Cost.** The network map has to fetch about a hundred stations per poll. The corridor view
-does not care: it fetches one station and the journeys through it.
+**Cost.** None in practice: the corridor view fetches one station and the journeys through
+it, and the route map that replaced the network map (16) fetches nothing per station.
 
 ---
 
 ## 10 · Stack: React 19 + TypeScript + Vite, D3 as maths only, TanStack Query
+
+*The displacement example below is the original; the axis is now linear and adaptive, see 19.
+`d3-geo` was dropped once the map moved to MapLibre (16).*
 
 Two days, static hosting, and the code is written by an agent, so the stack is chosen for
 the writer's reliability, not the owner's habits. React is where the writer makes the fewest
 quiet mistakes and where every visualisation library is aimed first. SVG comes out of JSX
 directly; React owns the DOM.
 
-D3 is imported as modules for arithmetic, never as a renderer: `d3-scale` for the piecewise
-displacement (`scaleLinear().domain([-2, 0, 5, 15]).clamp(true)`), `d3-shape` for trails,
-`d3-array` for segment aggregation, `d3-geo` for the map projection and fit.
+D3 is imported as modules for arithmetic, never as a renderer: `d3-scale` for the
+displacement scale, `d3-shape` for trails, `d3-array` for segment aggregation.
 `@mapbox/polyline` decodes `pointsOnLink`. TanStack Query runs the polling — interval,
 pause when hidden, refetch on return, stale data kept on error — which is exactly what SPEC
 asks for and is tedious to hand-roll. Tailwind v4 holds the palette and type as `@theme`
@@ -148,6 +150,8 @@ a morning.
 
 ## 11 · SVG, not canvas; map without a tile basemap, with a static coastline
 
+*The map half of this decision is superseded by 16.*
+
 A morning shows at most a few dozen trains, a hundred trail points and forty segments. SVG
 gives hit-testing, `<title>` tooltips, focusable marks and CSS transitions on transform for
 free, which is exactly the drift animation the diagram needs. Canvas would rebuild all of
@@ -167,9 +171,12 @@ that fails does the map alone move to canvas; the diagram does not.
 
 ## 12 · The three visual questions, closed
 
+*Superseded in part: the displacement scale by 19, the vertical spine as the only orientation
+by 18, the stops-away rows by 15.*
+
 **Displacement encodes delay.** Piecewise linear: five minutes take 60 % of the half-width,
 fifteen take the rest, beyond that the mark pins to the edge. Early trains were first
-mirrored left and clamped at two minutes; on 2026-09-16 the early side was cut to a 6 % nudge
+mirrored left and clamped at two minutes; on 2026-09-16 the early side was cut to a 4 % nudge
 at one minute, because trains are rarely early and the late side needed the room. The horizon carries the minute scale so the axis is never implied.
 
 **Vertical spine, flowing down.** Trains enter at the top and travel towards `to` at the
@@ -215,7 +222,7 @@ because expresses reach Sandvika in five minutes, and Eidsvoll sorted before Jes
 Gardermobanen is fast. Time depends on the train; distance does not. Rows are ordered by
 straight-line distance from the station to `from`, from coordinates carried in the journey
 response, with running time as the fallback for recordings made before coordinates were
-fetched. The eight stations passed by the most trains are shown. A train at
+fetched. The stations passed by the most trains are shown; how many, see 19. A train at
 an unshown station sits between its neighbours and names the station in its label; beyond the
 last row it sits in the *further out* gutter.
 

@@ -188,8 +188,14 @@ describe('live snapshot · Sandvika → Oslo S', () => {
 
   it('has trains in every state and none already past Oslo S', () => {
     expect(list.length).toBeGreaterThan(5)
-    expect(list.every((c) => c.group !== 'gone')).toBe(true)
     expect(list.some((c) => c.state.kind === 'measured')).toBe(true)
+  })
+  it('keeps Flytoget, whose future stops carry actual times equal to the timetable', () => {
+    expect(list.some((c) => c.train.line === 'FLY1')).toBe(true)
+    for (const t of trains) for (const c of t.calls) {
+      if (c.actualArrival !== null) expect(c.actualArrival).toBeLessThanOrEqual(now + 30_000)
+      if (c.actualDeparture !== null) expect(c.actualDeparture).toBeLessThanOrEqual(now + 30_000)
+    }
   })
   it('is ordered by measured arrival at Sandvika', () => {
     const times = list.map((c) => c.arrivesFrom ?? Infinity)

@@ -175,7 +175,7 @@ This is a daily utility, so success is measured on ordinary mornings, not at a d
 |---|---|---|
 | Displacement misread as position along the track | high | the axis is labelled in minutes; colour repeats the message; *you are here* and the two side labels are permanent; the list carries the words |
 | A first-time viewer does not understand the picture | high | one sentence of explanation on first opening, delays in words not codes, colour by delay not by line; the owner's partner is the test |
-| Quiet morning, everything on the spine | medium | that is the designed green state; the headline says "all N trains within a minute"; B still carries content |
+| Quiet morning, everything on the spine | medium | that is the designed green state: green marks on the line and the station chip *running well*; B still carries content |
 | Measurements gone after 2–3 h | medium | the product is used in the moment; nothing depends on history |
 | One sick train skews a segment | medium | n ≥ 4, grey below it |
 | Reads as another departure board | medium | the diagram leads; scheduled times are the least prominent thing on screen |

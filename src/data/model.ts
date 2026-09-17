@@ -34,6 +34,7 @@ export function toTrain(journey: RawJourney, destination: string): Train {
     patternId: journey.journeyPattern?.id ?? null,
     calls: journey.estimatedCalls
       .filter((c) => c.quay?.stopPlace)
+      .sort((a, b) => a.stopPositionInPattern - b.stopPositionInPattern)
       .map((c, i) => ({
         station: normaliseName(c.quay!.stopPlace.name),
         position: c.stopPositionInPattern,
@@ -45,14 +46,28 @@ export function toTrain(journey: RawJourney, destination: string): Train {
         lat: c.quay!.stopPlace.latitude ?? null,
         lon: c.quay!.stopPlace.longitude ?? null,
         platform: c.quay!.publicCode ?? null,
-      }))
-      .sort((a, b) => a.position - b.position),
+      })),
   }
 }
 
 export const EXCLUDED_LINES = /^F\d/i
 
+export const FUTURE_SKEW_MS = 30_000
+
+function dropFutureActuals(train: Train, recordedAt: number): Train {
+  const limit = recordedAt + FUTURE_SKEW_MS
+  return {
+    ...train,
+    calls: train.calls.map((c) => ({
+      ...c,
+      actualDeparture: c.actualDeparture !== null && c.actualDeparture > limit ? null : c.actualDeparture,
+      actualArrival: c.actualArrival !== null && c.actualArrival > limit ? null : c.actualArrival,
+    })),
+  }
+}
+
 export function trainsFromSnapshot(snap: CorridorSnapshot): Train[] {
+  const recordedAt = Date.parse(snap.recordedAt)
   const destinations = new Map<string, string>()
   for (const c of snap.stopCalls as RawStopCall[]) {
     const text = c.destinationDisplay?.frontText
@@ -62,6 +77,6 @@ export function trainsFromSnapshot(snap: CorridorSnapshot): Train[] {
     .filter((j) => !EXCLUDED_LINES.test(j.line.publicCode ?? ''))
     .map((j) => {
       const fallback = j.estimatedCalls.at(-1)?.quay?.stopPlace.name ?? ''
-      return toTrain(j, destinations.get(j.id) ?? normaliseName(fallback))
+      return dropFutureActuals(toTrain(j, destinations.get(j.id) ?? normaliseName(fallback)), recordedAt)
     })
 }

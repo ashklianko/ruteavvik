@@ -5,7 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 setWorkerUrl(workerUrl)
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ArrivalWindow, CorridorTrain, SegmentStat } from '../data/derive.ts'
-import { segmentKey } from '../data/derive.ts'
+import { MIN_PASSES, segmentKey } from '../data/derive.ts'
 import { positionAlong, stopIndex, subPath, type LonLat, type Pattern } from '../data/geometry.ts'
 import { BAND_LABEL, delayColour } from '../diagram/palette.ts'
 import { delayWords, fmtTime, signed } from '../format.ts'
@@ -20,6 +20,7 @@ interface Props {
   corridor: string[]
   upstreamRows: string[]
   now: number
+  ghostNow?: number
   selected: string | null
   hovered: string | null
   onSelect: (id: string | null) => void
@@ -31,7 +32,7 @@ const STYLE = `https://tiles.openfreemap.org/styles/${new URLSearchParams(window
 
 const BAND_HEX: Record<string, string> = {
   few: '#3a4a4f',
-  steady: '#3e5660',
+  steady: '#2c4048',
   'catching-up': '#5fb7c9',
   plus0: '#c9cf7a',
   plus1: '#d9a441',
@@ -67,13 +68,17 @@ function place(ct: CorridorTrain, p: Pattern, now: number): Placed | null {
   return pos ? { ct, lonLat: pos, moving: progress < 1, due: progress >= 1 } : null
 }
 
-export default function RouteMap({ from, to, list, patterns, segments, corridor, upstreamRows, now, selected, hovered, onSelect, onHover, windowFor }: Props) {
+export default function RouteMap({ from, to, list, patterns, segments, corridor, upstreamRows, now, ghostNow = now, selected, hovered, onSelect, onHover, windowFor }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markers = useRef(new Map<string, Marker>())
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null)
+  const selectedRef = useRef<string | null>(selected)
+  useEffect(() => {
+    selectedRef.current = selected
+  }, [selected])
   const fittedFor = useRef<string | null>(null)
   const focusId = hovered ?? selected
 
@@ -171,7 +176,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       if (path.length < 2) continue
       const stat = segments.get(segmentKey(a, b))
       const band = stat?.band ?? 'few'
-      const text = stat && stat.n >= 4 ? `${a} to ${b}: ${BAND_LABEL[band]}, ${signed(stat.added)} over ${stat.n} trains` : `${a} to ${b}: too few trains to say (${stat?.n ?? 0} measured)`
+      const text = stat && stat.n >= MIN_PASSES ? `${a} to ${b}: ${BAND_LABEL[band]}, ${signed(stat.added)} over ${stat.n} trains` : `${a} to ${b}: ${BAND_LABEL.few} (${stat?.n ?? 0} measured)`
       features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: path }, properties: { colour: BAND_HEX[band], band, hot: band === 'plus1' || band === 'plus2' || band === 'worse', text } })
     }
     return features
@@ -201,11 +206,11 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
     for (const c of list) {
       const p = c.train.patternId ? patterns.get(c.train.patternId) : undefined
       if (!p) continue
-      const pl = place(c, p, now)
+      const pl = place(c, p, ghostNow)
       if (pl) out.push(pl)
     }
     return out
-  }, [list, patterns, now])
+  }, [list, patterns, ghostNow])
 
   useEffect(() => {
     const map = mapRef.current
@@ -258,7 +263,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
         el.addEventListener('mouseleave', () => onHover(null))
         el.addEventListener('click', (e) => {
           e.stopPropagation()
-          onSelect(selected === id ? null : id)
+          onSelect(selectedRef.current === id ? null : id)
         })
         marker = new Marker({ element: el, anchor: 'center' }).setLngLat(pl.lonLat).addTo(map)
         markers.current.set(id, marker)

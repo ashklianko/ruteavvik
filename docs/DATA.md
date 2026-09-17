@@ -41,7 +41,9 @@ orders upstream rows by distance from these.
 displays: 1640, 2241, 521, 1023. `publicCode` is null; do not use it.
 
 **`line.journeyPatterns.pointsOnLink`** — real track geometry as an encoded polyline, plus
-quays in running order. Eleven Oslo lines resolve: RE10 30 812 characters, R12 13 207,
+quays in running order. The app reads the same field through
+`serviceJourney.journeyPattern`, one pattern per train, since there is no root
+`journeyPattern(id)` query. Eleven Oslo lines resolve: RE10 30 812 characters, R12 13 207,
 L1 8 094; 134 003 characters total.
 
 **`realtime/v2/vehicles`** — **5894 vehicles live, 113 of them RAIL**, with coordinates,
@@ -110,11 +112,10 @@ The box with Drammen is the product's scope. It includes Eidsvoll, Eidsvoll verk
 Kløfta, Oslo lufthavn, Dal, Årnes, Sørumsand, Fetsund, Ski, Ås, Vestby, Langhus, Spikkestad
 and Røyken, and also a dozen stations past the county line: Roa, Lunner, Gran, Jaren,
 Jevnaker, Harestua, Grua, Stryken on Gjøvikbanen; Askim, Mysen, Spydeberg, Slitu, Knapstad,
-Tomter on Østre linje. `collect.py` still uses the older, narrower box.
+Tomter on Østre linje. `collect.py` uses its own, narrower box, 59.80–60.05 N, 10.35–10.95 E.
 
-Not yet measured: one aliased `estimatedCalls` request over all 100 stations. Thirty-nine
-took 0.6 s and 1378 rows; expect roughly two to three times that, and split into two
-requests if it exceeds a second.
+Nothing fetches all stations at once any more; the route map (decision 16) works from the
+pair's journeys.
 
 **The two ids are parent and child.** Verified 2026-09-16: `stopPlacesByBbox` returns the
 multimodal parent (`NSR:StopPlace:59872`, modes rail and bus); journeys reference the rail
@@ -127,6 +128,12 @@ is what the selector queries with.
 on yesterday's service date; the diagram emptied out. `EstimatedCall.date` on the stop call
 carries the service date, and the journey query passes it as `estimatedCalls(date:)`.
 Verified 2026-09-17 00:05: without date 31 stops, 0 actuals; with date 31 stops, 27 actuals.
+
+**Flytoget publishes actual times for stops it has not reached.** Every FLY1 journey carries
+`actualArrivalTime` equal to the timetable on all remaining stops, up to an hour ahead. Taken
+at face value the train is "already at Oslo lufthavn" and vanishes from the list. Any
+recorded time later than the moment of the response plus 30 s is dropped as unmeasured.
+Verified 2026-09-17: 14 such values in one response, all FLY1.
 
 **An origin's recorded arrival is the empty stock arriving.** R13 1647 showed −9:49 at
 Drammen, its first stop, from `actualArrivalTime` alone. Arrival at the origin says nothing

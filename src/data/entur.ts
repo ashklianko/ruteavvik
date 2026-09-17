@@ -10,8 +10,8 @@ export async function gql<T>(query: string, variables: Record<string, unknown> =
     body: JSON.stringify({ query, variables }),
   })
   if (!res.ok) throw new EnturError(`Entur ${res.status}`)
-  const body = (await res.json()) as { data?: T; errors?: Array<{ message: string }> }
+  const body = (await res.json()) as { data?: T | null; errors?: Array<{ message: string }> }
+  if (body.data) return body.data
   if (body.errors?.length) throw new EnturError(body.errors.map((e) => e.message).join('; '))
-  if (!body.data) throw new EnturError('Entur returned no data')
-  return body.data
+  throw new EnturError('Entur returned no data')
 }

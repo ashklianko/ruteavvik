@@ -2,7 +2,7 @@ import { gql } from './entur.ts'
 import { journeysBatchQuery, STOP_CALLS, type JourneyRef } from './queries.ts'
 import type { CorridorSnapshot, RawJourney, RawStopCall } from './types.ts'
 
-export const LOOKBACK_MS = 60 * 60_000
+export const LOOKBACK_MS = 90 * 60_000
 export const RANGE_S = 150 * 60
 const BATCH = 25
 
@@ -38,5 +38,5 @@ export async function fetchCorridor(
     if (!refs.has(key)) refs.set(key, { id: c.serviceJourney.id, date: c.date ?? null })
   }
   const journeys = await fetchJourneys([...refs.values()])
-  return { recordedAt: now.toISOString(), from: from.name, to, stopPlaceId: from.id, stopCalls, journeys }
+  return { recordedAt: new Date().toISOString(), from: from.name, to, stopPlaceId: from.id, stopCalls, journeys }
 }

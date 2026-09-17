@@ -1,7 +1,7 @@
 import { curveLinear, line as d3line } from 'd3-shape'
 import { useMemo, useState } from 'react'
 import type { ArrivalWindow, CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
-import { arrivalWindow, delayAt, segmentKey, WINDOW_MS } from '../data/derive.ts'
+import { arrivalWindow, delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
 import { isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
 import type { Train } from '../data/model.ts'
 import { delayWords, fmtTime, signed } from '../format.ts'
@@ -22,6 +22,7 @@ interface Props {
   axisMax: AxisMax
   compact?: boolean
   now: number
+  ghostNow?: number
   selected: string | null
   hovered: string | null
   onSelect: (id: string | null) => void
@@ -165,7 +166,7 @@ function labelSlots(marks: Mark[]): Map<string, { dx: number; dy: number }> {
 }
 
 export function Spine(props: Props) {
-  const { from, to, corridor, upstreamOrder, upstreamRows, list, trains, segments, observations, minor, axisMax, compact = false, now, selected, hovered, onSelect, onHover, ariaLabel } = props
+  const { from, to, corridor, upstreamOrder, upstreamRows, list, trains, segments, observations, minor, axisMax, compact = false, now, ghostNow = now, selected, hovered, onSelect, onHover, ariaLabel } = props
   const g = compact ? COMPACT_GEOM : NORMAL_GEOM
   const empty = !from || !to
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
@@ -175,7 +176,7 @@ export function Spine(props: Props) {
     () => buildLayout({ corridor: corridor.length ? corridor : [from ?? ''], upstreamOrder, upstreamRows, from: from ?? '', list, minor, rowH: compact ? 34 : undefined, rowMinor: compact ? 20 : undefined }),
     [corridor, upstreamOrder, upstreamRows, list, from, minor, compact],
   )
-  const allMarks = useMemo(() => marksOf(list, layout, from ?? '', now, axisMax, g), [list, layout, from, now, axisMax, g])
+  const allMarks = useMemo(() => marksOf(list, layout, from ?? '', ghostNow, axisMax, g), [list, layout, from, ghostNow, axisMax, g])
   const clusters = useMemo(() => {
     const groups = new Map<string, Mark[]>()
     for (const m of allMarks) {
@@ -228,7 +229,7 @@ export function Spine(props: Props) {
   return (
     <svg
       viewBox={`0 0 ${g.W} ${layout.height}`}
-      role="img"
+      role="group"
       aria-label={ariaLabel}
       className="spine block h-auto w-full max-w-full select-none"
       onClick={(e) => {
@@ -254,7 +255,7 @@ export function Spine(props: Props) {
         const hot = band === 'plus1' || band === 'plus2' || band === 'worse'
         const active = hoverSegment === key
         const title =
-          stat && stat.n >= 4
+          stat && stat.n >= MIN_PASSES
             ? `${a} to ${row.station}, ${BAND_LABEL[band]}, ${signed(stat.added)} over ${stat.n} trains`
             : `${a} to ${row.station}, ${BAND_LABEL.few} (${stat?.n ?? 0} measured)`
         return (
@@ -277,7 +278,7 @@ export function Spine(props: Props) {
               y2={row.y - 4}
               stroke="transparent"
               strokeWidth={18}
-              tabIndex={stat && stat.n >= 4 ? 0 : -1}
+              tabIndex={stat && stat.n >= MIN_PASSES ? 0 : -1}
               aria-label={title}
               onMouseEnter={() => setHoverSegment(key)}
               onMouseLeave={() => setHoverSegment(null)}
@@ -414,7 +415,6 @@ export function Spine(props: Props) {
         const segAdded = segmentTrains?.get(id)
         const clusterKey = clusterOf(m)
         const cluster = clusterKey && clusterKey !== openCluster ? clusters.get(clusterKey)! : null
-        const quiet = false
         const full = `${m.ct.train.line} to ${m.ct.train.destination}${m.ct.state.kind === 'measured' ? `, ${delayWords(m.ct.state.delay)}` : ''}`
         const label = cluster
           ? `${cluster.length} trains`
@@ -468,8 +468,8 @@ export function Spine(props: Props) {
                 »
               </text>
             )}
-            {slot.dx > 0 && !quiet && !m.pinned && <line x1={8} y1={0} x2={(m.pinned ? 20 : 10) + slot.dx - 4} y2={slot.dy - 4} stroke="var(--color-ink-faint)" strokeWidth={0.75} />}
-            {!quiet && (
+            {slot.dx > 0 && !m.pinned && <line x1={8} y1={0} x2={(m.pinned ? 20 : 10) + slot.dx - 4} y2={slot.dy - 4} stroke="var(--color-ink-faint)" strokeWidth={0.75} />}
+            {(
             <text x={m.pinned ? -12 : 10 + slot.dx} y={slot.dy} textAnchor={m.pinned ? 'end' : 'start'} className="num" fontSize={12} fill={m.hollow ? 'var(--color-ink-faint)' : 'var(--color-ink)'} style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
               {label}
               {sub && (

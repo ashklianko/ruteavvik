@@ -82,6 +82,7 @@ export function Headline({ h, from, to, following, mood, onHover, onSelect }: Pr
   const next = 'train' in h ? h.train : null
   if (!next) return <p className="headline">Nothing running from {from} to {to} right now.</p>
   const t = heroTime(next, from)
+  const reason = why(next, from)
 
   return (
     <div className="hero">
@@ -98,8 +99,8 @@ export function Headline({ h, from, to, following, mood, onHover, onSelect }: Pr
           aria-label={`Show train ${next.train.number} in the list`}
         >
           <span className={`hero-time link-time ${atPlatform(next) ? '' : 'num'}`}>{atPlatform(next) ? 'Now' : t !== null ? fmtTime(t) : '—'}</span>
-          <span className="hero-why" title={typeof why(next, from) === 'string' ? (why(next, from) as string) : undefined}>
-            {why(next, from)}
+          <span className="hero-why" title={typeof reason === 'string' ? reason : undefined}>
+            {reason}
             <span className="hero-chevron" aria-hidden="true">
               {' '}
               ›
