@@ -32,10 +32,10 @@ export function TrainDetail({ ct, from, to, window }: Props) {
               const d = delayAt(c)
               const isNow = i === passed.length - 1
               return (
-                <tr key={c.position} className={`${isNow ? 'detail-now' : ''} ${c.station === from || c.station === to ? 'detail-end' : ''}`} aria-current={isNow ? 'step' : undefined}>
+                <tr key={c.position} className={c.station === from || c.station === to ? 'detail-end' : ''} aria-current={isNow ? 'step' : undefined}>
                   <td>{c.station}</td>
-                  <td className="num text-ink-faint">{aimed !== null ? fmtTime(aimed) : ''}</td>
-                  <td className="num">{actual !== null ? fmtTime(actual) : ''}</td>
+                  <td className={`num ${actual === null ? 'detail-time' : 'text-ink-faint'}`}>{aimed !== null ? fmtTime(aimed) : ''}</td>
+                  <td className={`num ${actual !== null ? 'detail-time' : ''}`}>{actual !== null ? fmtTime(actual) : ''}</td>
                   <td className="num text-ink-muted">{d !== null ? signed(d) : ''}</td>
                   <td className="detail-mark">
                     {isNow && (
@@ -63,8 +63,8 @@ export function TrainDetail({ ct, from, to, window }: Props) {
               return (
                 <tr key={c.position} className={c.station === from || c.station === to ? 'detail-end' : ''}>
                   <td>{c.station}</td>
-                  <td className="num text-ink-faint">{aimed !== null ? fmtTime(aimed) : ''}</td>
-                  <td className="num">{aimed !== null && delay !== null ? fmtTime(aimed + delay * 1000) : ''}</td>
+                  <td className={`num ${delay === null ? 'detail-time' : 'text-ink-faint'}`}>{aimed !== null ? fmtTime(aimed) : ''}</td>
+                  <td className={`num ${delay !== null ? 'detail-time' : ''}`}>{aimed !== null && delay !== null ? fmtTime(aimed + delay * 1000) : ''}</td>
                   <td className="num text-ink-faint">{c.cancelled ? 'cancelled' : ''}</td>
                 </tr>
               )

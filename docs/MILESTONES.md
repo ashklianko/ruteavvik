@@ -52,8 +52,8 @@ picture reads without explanation. This is the gate for everything after it.
 
 - Segment colouring below the horizon, with hover text. ✔
 - Segment ↔ train link: hovering or focusing a segment highlights the trains that passed it
-  and shows each one's added delay there; focusing a train dims the rest and draws its
-  arrival window as a bracket on the `to` row.
+  and shows each one's added delay there; focusing a train dims the rest. (The arrival
+  bracket on the `to` row was drawn for a day and removed 2026-09-17, decision 24.)
 - Glow under hot segments; trails, first as smoothed curves, later as footprint dots.
 - Ghost position: a hollow mark slides from the last measured stop towards the next one by
   timetable run time, second by second; the measured mark stays put.
@@ -120,8 +120,8 @@ service-date trap, the empty-stock arrival trap.
 1. ~~Deploy~~ Live at https://ashklianko.github.io/ruteavvik/ via GitHub Pages from `main`,
    repository public, 2026-09-17 (decision 21).
 2. Keyboard and screen-reader pass, deferred by the owner.
-3. ~~Wide orientation parity~~ clusters, bracket and ghost ported 2026-09-17; the inline
-   segment readout stays tall-only by choice.
+3. ~~Wide orientation parity~~ clusters and ghost ported 2026-09-17; the inline
+   segment readout stays tall-only by choice; the arrival bracket was dropped from both.
 4. Pick two or three peak recordings from `recordings/` into `public/snapshots/` as the
    canonical test data and point the tests at them.
 5. Light theme via `prefers-color-scheme` if the dark one fails on a sunny platform.

@@ -82,9 +82,11 @@ Two orientations of the same picture: stations across and delay upwards on a wid
 stations down and delay to the right on a phone, with a toggle to override. The delay axis
 adapts to the worst train on screen so a quiet morning is not squeezed against the line.
 
-- **Next departure**, the first thing read: the time the next train will actually leave, in
-  large type, with one sentence of why and the platform; then the two after it. Beside it a
-  one-word **station state**, from what the last five trains actually did at this station.
+- **Next departure**, the first thing read: *Next*, the time the next train will actually
+  leave, in large type, the minutes until then, the route and platform; then the two after
+  it. Beside it a one-word **station state**, from what the last five trains actually did at
+  this station. While a train is selected the same block describes that train instead:
+  when it leaves, when it arrives, timetable struck through when late, and a way back.
 - **Approaching trains** — measured delay in words, footprints, growing / holding /
   shrinking, current position. Ordered by measured arrival, not timetable. Three honest
   states, never blended: measured · starts here · not departed yet.

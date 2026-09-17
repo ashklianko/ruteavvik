@@ -233,7 +233,8 @@ body {
 }
 .row-selected,
 .row-selected:hover {
-  background: var(--color-ground-raised);
+  background: color-mix(in oklab, var(--color-ground-raised) 86%, var(--color-focus));
+  box-shadow: inset 3px 0 0 var(--color-focus);
 }
 .row-quiet {
   color: var(--color-ink-muted);
@@ -277,7 +278,7 @@ body {
 .detail {
   margin: 0.25rem 0 0.75rem 3.8rem;
   padding-left: 0.6rem;
-  border-left: 1px solid var(--color-spine-dim);
+  border-left: 2px solid color-mix(in oklab, var(--color-focus) 50%, transparent);
   font-size: 0.875rem;
   min-width: 0;
   overflow-x: auto;
@@ -301,10 +302,10 @@ body {
 }
 .detail-end td:first-child {
   color: var(--color-ink);
-  font-weight: 600;
 }
-.detail-now td {
+.detail-end .detail-time {
   color: var(--color-ink);
+  font-weight: 600;
 }
 .detail-table td.detail-mark {
   padding-right: 0;
@@ -393,6 +394,7 @@ body {
   align-items: center;
   gap: 0.6rem;
   min-width: 0;
+  overflow: hidden;
   margin-top: -0.15rem;
 }
 .hero-button {
@@ -439,6 +441,9 @@ body {
   color: var(--color-focus);
   transform: translateX(2px);
 }
+.hero-button:hover .hero-close {
+  transform: none;
+}
 .then-item {
   color: inherit;
   cursor: pointer;
@@ -453,9 +458,21 @@ body {
   font-size: 0.9375rem;
   color: var(--color-ink-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .hero-late {
   color: var(--color-ink);
+}
+.hero-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.hero-sched {
+  font-size: 0.6875rem;
+  color: var(--color-ink-faint);
+  margin-top: 0.2rem;
 }
 .hero-time {
   font-size: 1.5rem;
@@ -482,6 +499,19 @@ body {
 }
 .hero-then .num {
   color: var(--color-ink-muted);
+}
+.hero-selected {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.hero-selected-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-selected .then-item {
+  flex: none;
 }
 @media (min-width: 900px) {
   .hero {

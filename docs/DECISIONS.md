@@ -353,3 +353,24 @@ arithmetic through `layout.ts`. Behaviour is unchanged; the file halves.
 
 **Cost.** The hook returns a wide bag of values rather than a typed domain object. Good
 enough while there is one consumer.
+
+## 24 · The headline follows the selection; the arrival bracket goes
+
+Selecting a train in the list used to change only the list and the diagram; the block at
+the top right kept talking about the next departure. Now it describes the selected train,
+*Leaves HH:MM (in N min) · arrives HH:MM*, timetable struck through underneath when the
+train is over a minute late, route and delay on the second line with the arrival window
+range when the sample allows, and *Back to next*. Clicking the block again also clears the
+selection. The diagram's arrival bracket on the `to` column, a tick from the carried delay
+to the worst recent added delay with a dotted leader to its label, was removed from both
+orientations the same day: the owner saw it as an unexplained line, and the same fact is
+already a sentence in the caption, the expanded row and the map panel, where the sample
+size can be stated.
+
+**Cost.** The diagram no longer shows the arrival window at all; a reader has to select or
+hover and read words. Accepted, the words were always the honest form of a three-train
+sample.
+
+Hover labels on tracked trains, in both orientations, the timeline and the map, dropped the
+destination at the same time (*R14, 4 min late, at Asker*); the destination stays in the
+tooltip and the list. Space over completeness at the point of hover.

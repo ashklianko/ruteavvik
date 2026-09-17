@@ -1,8 +1,8 @@
-import type { CorridorTrain, Headline as H, StationMood } from '../data/derive.ts'
+import type { ArrivalWindow, CorridorTrain, Headline as H, StationMood } from '../data/derive.ts'
 import { MoodChip } from './MoodChip.tsx'
 import { relevantNotices } from '../data/notices.ts'
 import { CALM_S, indexOf } from '../data/derive.ts'
-import { delayWords, fmtTime, inWords, STATE_WORDS } from '../format.ts'
+import { delayWords, fmtTime, inWords, STATE_WORDS, windowWords } from '../format.ts'
 
 interface Props {
   h: H
@@ -12,8 +12,11 @@ interface Props {
   mood: StationMood | null
   lines?: string[]
   now: number
+  selected?: CorridorTrain | null
+  window?: ArrivalWindow | null
   onHover: (id: string | null) => void
   onSelect: (id: string) => void
+  onClear?: () => void
 }
 
 function scheduledAt(ct: CorridorTrain, from: string): number | null {
@@ -36,6 +39,12 @@ function platformAt(ct: CorridorTrain, from: string): string | null {
 function route(ct: CorridorTrain, from: string): string {
   const platform = platformAt(ct, from)
   return `${ct.train.line} to ${ct.train.destination}${platform ? `, pl. ${platform}` : ''}`
+}
+
+function arrivalAt(ct: CorridorTrain, to: string, window: ArrivalWindow | null): number | null {
+  if (window) return window.lower
+  const call = ct.train.calls[indexOf(ct.train, to)]
+  return call?.aimedArrival ?? call?.aimedDeparture ?? null
 }
 
 function status(ct: CorridorTrain): string | null {
@@ -72,8 +81,70 @@ function ThenItem({ ct, from, onHover, onSelect }: { ct: CorridorTrain; from: st
   )
 }
 
-export function Headline({ h, from, to, following, mood, lines = [], now, onHover, onSelect }: Props) {
+function SelectedHero({ ct, from, to, window, mood, lines, now, onHover, onSelect, onClear }: { ct: CorridorTrain; from: string; to: string; window: ArrivalWindow | null } & Pick<Props, 'mood' | 'lines' | 'now' | 'onHover' | 'onSelect' | 'onClear'>) {
+  const t = heroTime(ct, from)
+  const standing = atPlatform(ct)
+  const gone = ct.group === 'gone'
+  const arrival = arrivalAt(ct, to, window)
+  const late = status(ct)
+  const measured = ct.state.kind === 'measured'
+  const shifted = ct.state.kind === 'measured' && Math.abs(ct.state.delay) > 60
+  const sched = scheduledAt(ct, from)
+  const schedArrival = arrivalAt(ct, to, null)
+  return (
+    <div className="hero">
+      <div className="hero-line">
+        {mood && <MoodChip mood={mood} station={from} lines={lines ?? []} />}
+        <button
+          type="button"
+          className="hero-button"
+          onMouseEnter={() => onHover(ct.train.id)}
+          onMouseLeave={() => onHover(null)}
+          onFocus={() => onHover(ct.train.id)}
+          onBlur={() => onHover(null)}
+          onClick={() => (onClear ? onClear() : onSelect(ct.train.id))}
+          aria-label={`Back to the next departure`}
+          title="Back to next"
+        >
+          <span className="hero-next">{gone ? 'Left' : 'Leaves'}</span>
+          <span className="hero-stack">
+            <span className={`hero-time link-time ${standing ? '' : 'num'}`}>{standing ? 'Now' : t !== null ? fmtTime(t) : '—'}</span>
+            {shifted && !standing && sched !== null && <s className="hero-sched num">{fmtTime(sched)}</s>}
+          </span>
+          {!standing && !gone && t !== null && <span className="hero-in">({inWords(t, now)})</span>}
+          <span className="hero-next">arrives</span>
+          <span className="hero-stack">
+            <span className="hero-time num">{arrival !== null ? fmtTime(arrival) : '—'}</span>
+            {shifted && schedArrival !== null && arrival !== null && schedArrival !== arrival && <s className="hero-sched num">{fmtTime(schedArrival)}</s>}
+          </span>
+          <span className="hero-chevron hero-close" aria-hidden="true">×</span>
+        </button>
+      </div>
+      <p className="hero-then hero-selected" title={window ? windowWords(window.lower, window.upper, window.sample, to) : undefined}>
+        <span className="hero-selected-text">
+          <span className="text-ink-muted">{route(ct, from)}</span>
+          {late && <span className="hero-late"> · {late}</span>}
+          {window?.upper !== null && window?.upper !== undefined && (
+            <span>
+              {' · '}
+              <span className="num">{fmtTime(window.lower)}–{fmtTime(window.upper)}</span> from the last {window.sample} trains
+            </span>
+          )}
+          {!measured && <span> · timetable</span>}
+        </span>
+        {onClear && (
+          <button type="button" className="then-item" onClick={onClear}>
+            <span className="link-time">Back to next</span>
+          </button>
+        )}
+      </p>
+    </div>
+  )
+}
+
+export function Headline({ h, from, to, following, mood, lines = [], now, selected = null, window = null, onHover, onSelect, onClear }: Props) {
   if (!from || !to) return <p className="headline">Pick where you are and where you are going.</p>
+  if (selected) return <SelectedHero ct={selected} from={from} to={to} window={window} mood={mood} lines={lines} now={now} onHover={onHover} onSelect={onSelect} onClear={onClear} />
   if (h.kind === 'none') return <p className="headline">Nothing running from {from} to {to} right now.</p>
 
   const next = 'train' in h ? h.train : null

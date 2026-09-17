@@ -1,9 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
-import type { ArrivalWindow, CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
-import { arrivalWindow, delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
-import type { Train } from '../data/model.ts'
+import type { CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
+import { delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
 import { displacement, isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
-import { delayWords, fmtTime, signed, STATE_WORDS, windowWords } from '../format.ts'
+import { delayWords, fmtTime, signed, STATE_WORDS } from '../format.ts'
 import { buildLayout, ghostProgress, isFar, PAD, yOfCall, type Layout } from './layout.ts'
 import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
 
@@ -14,7 +13,6 @@ interface Props {
   upstreamOrder: string[]
   upstreamRows: string[]
   list: CorridorTrain[]
-  trains?: Train[]
   segments: Map<string, SegmentStat>
   observations: SegmentObservation[]
   now: number
@@ -33,7 +31,7 @@ const FULL = { HW: 1000, HH: 430, LEFT: 104, RIGHT: 30, BASE: 330, HALFY: 280 }
 const NARROW = { HW: 1000, HH: 560, LEFT: 104, RIGHT: 30, BASE: 450, HALFY: 400 }
 
 
-export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, trains = [], segments, observations, now, ghostNow = now, minor, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
+export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, ghostNow = now, minor, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
   const { HW, HH, LEFT, RIGHT, BASE, HALFY } = narrow ? NARROW : FULL
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
   const [openCluster, setOpenCluster] = useState<string | null>(null)
@@ -120,14 +118,6 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
   const openMembers = openCluster ? new Set(clusters.get(openCluster)?.map((m) => m.ct.train.id)) : null
   const dimmed = focusId !== null || segmentTrains !== null
   const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id || (openMembers?.has(id) ?? false))
-  const focusWindow: { ct: CorridorTrain; w: ArrivalWindow } | null = useMemo(() => {
-    if (!focusId || !to) return null
-    const ct = list.find((c) => c.train.id === focusId)
-    if (!ct) return null
-    const w = arrivalWindow(ct, to, trains, now)
-    return w ? { ct, w } : null
-  }, [focusId, list, to, trains, now])
-
   const labelDy = useMemo(() => {
     const placed: Array<{ x: number; y: number; w: number; h: number }> = marks.map((m) => ({ x: m.x - 8, y: m.y - 8, w: 16, h: 16 }))
     const out = new Map<string, number>()
@@ -272,33 +262,6 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
           </g>
         )
       })}
-
-      {focusWindow &&
-        to &&
-        (() => {
-          const yTo = layout.yOfStation(to)
-          if (yTo === undefined) return null
-          const xTo = xOfY(yTo)
-          const { w } = focusWindow
-          const d = focusWindow.ct.state.kind === 'measured' ? focusWindow.ct.state.delay : 0
-          const y0 = yOfDelay(d)
-          const y1 = w.upper !== null ? yOfDelay(d + (w.upper - w.lower) / 1000) : y0
-          return (
-            <g className="window">
-              <line x1={xTo - 9} y1={y0} x2={xTo + 9} y2={y0} stroke="var(--color-ink)" strokeWidth={1.2} />
-              {w.upper !== null && (
-                <>
-                  <line x1={xTo} y1={y0} x2={xTo} y2={y1} stroke="var(--color-ink)" strokeWidth={1.2} />
-                  <line x1={xTo - 9} y1={y1} x2={xTo + 9} y2={y1} stroke="var(--color-ink)" strokeWidth={1.2} />
-                </>
-              )}
-              <text x={xTo + 12} y={yOfDelay(axisMax * 60) + 14} textAnchor="end" fontSize={12} fill="var(--color-ink)" style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
-                {windowWords(w.lower, w.upper, w.sample)}
-              </text>
-              <line x1={xTo} y1={yOfDelay(axisMax * 60) + 20} x2={xTo} y2={Math.min(y0, y1) - 6} stroke="var(--color-ink)" strokeWidth={0.6} strokeOpacity={0.5} strokeDasharray="2 3" />
-            </g>
-          )
-        })()}
 
       {marks.map((m) => {
         const id = m.ct.train.id

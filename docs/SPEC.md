@@ -140,6 +140,16 @@ screens with the tail of a long sentence cut by an ellipsis.
 **Line two.** *Then* and the next two trains as clickable times with their delay in words in
 brackets when over a minute, *timetable* when unmeasured.
 
+**Selected train.** While a train is selected the block describes it instead of the next
+departure. Line one: the chip, *Leaves HH:MM (in N min)* (*Now* at the platform, *Left HH:MM*
+for a train already gone) and *arrives HH:MM*, the lower bound of its arrival window, or the
+timetable arrival when nothing is measured; when the delay is over a minute the timetable
+time stands struck through, small, under each real time, as in the list rows; the whole line
+is a button that clears the selection and returns to *Next*. Line two: the route, the delay in words when over a minute, the window
+*HH:MM–HH:MM from the last k trains* when the sample allows, *timetable* for an unmeasured
+train, and *Back to next*, which clears the selection. Escape and a click on the diagram
+background clear it too.
+
 Hovering any of these times highlights that train in the diagram and the list; clicking
 selects it, expands its row and scrolls the list to it. The next train is the one with the
 earliest measured arrival at `from`, not the earliest timetable slot.
@@ -252,9 +262,9 @@ No ghost while only an arrival is measured.
 ### Focus
 
 Hovering or focusing a train, in the diagram, the list or the next-departure block, dims
-every other train and draws its arrival window on the `to` row as a bracket from the
-displacement of its carried delay to that of the worst recent added delay, labelled with the
-two clock times. Clicking a mark selects the train, expands its row and scrolls the list to
+every other train. The arrival window is not drawn in the diagram; it lives in the caption,
+the expanded row and the map panel as a sentence, where the sample size can be stated.
+Clicking a mark selects the train, expands its row and scrolls the list to
 it; clicking the background or pressing Escape clears the selection. Selection survives polls.
 
 ### Segments
@@ -308,13 +318,15 @@ Trains ahead of you sit under a divider *already past {from}*.
 Verdict thresholds: last minus first of the trail, ±45 s. Fewer than three readings yields
 *one reading* / *two readings* and no direction word.
 
-Selecting a row or a mark highlights both, dims the rest and expands the row in place.
+Selecting a row or a mark highlights both, dims the rest and expands the row in place; the
+selected row carries a bar in the focus colour on its left edge and the detail under it a
+border in the same colour, so the selection reads at a glance.
 
 ## Train detail
 
 Expands under the selected row; does not navigate. Passed stops, at most the last eight, with
-timetable time, recorded time and measured delay; `from` and `to` in bold, the current stop
-in brighter ink with a small train glyph beside it. Then *below carries +M:SS forward, if it does not catch up* and the remaining
+timetable time, recorded time and measured delay; on the `from` and `to` rows the recorded
+time is bold, the current stop is marked only by a small train glyph beside it. Then *below carries +M:SS forward, if it does not catch up* and the remaining
 stops to `to` with timetable time and that time shifted by the carried delay. At the end the
 arrival window sentence. For an unmeasured train only the timetable, and a note saying so.
 
@@ -396,7 +408,7 @@ deferred, see MILESTONES.
   deserve a glyph in the list.
 - Gutter rows collapse when empty; whether that jumps too much across polls is still to be
   judged on a real peak.
-- The wide orientation lacks the tall one's inline segment readout; clusters, arrival
-  bracket and ghost now exist in both.
+- The wide orientation lacks the tall one's inline segment readout; clusters and ghost
+  exist in both. The arrival bracket was dropped from both, it read as an unexplained line.
 - Station names at 45° in the wide orientation get tight when a corridor has many minor
   stops; a hide-when-crowded rule may be needed.

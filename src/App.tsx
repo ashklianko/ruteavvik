@@ -136,7 +136,7 @@ function Corridor({ view }: { view: View }) {
 
   const snap = corridor.data
   const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub })
-  const { fromName, toName, liveNow, now, ghostNow, trains, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, windowFor, headlineWindow, lateCount, ariaLabel } = m
+  const { fromName, toName, liveNow, now, ghostNow, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, windowFor, headlineWindow, lateCount, ariaLabel } = m
   const patterns = usePatterns(view === 'map' ? relevant : [])
 
   const diagramProps = {
@@ -146,7 +146,6 @@ function Corridor({ view }: { view: View }) {
     upstreamOrder: upOrder,
     upstreamRows: upRows,
     list,
-    trains,
     segments,
     observations,
     minor: minorStations,
@@ -159,6 +158,7 @@ function Corridor({ view }: { view: View }) {
     onHover: setHovered,
     ariaLabel,
   }
+  const selectedTrain = selected ? (list.find((c) => c.train.id === selected) ?? null) : null
   const listProps = { list, from: fromName, to: toName, later: visible, windowFor, selected, hovered, onSelect: setSelected, onHover: setHovered }
   const captionProps = { to: toName, window: headlineWindow, lateCount, loaded: Boolean(corridor.dataUpdatedAt), fetching: corridor.isFetching, stationsFailed: stations.isError }
   const loading = Boolean(fromName && toName) && !snap && !corridor.isError
@@ -198,8 +198,11 @@ function Corridor({ view }: { view: View }) {
           mood={mood}
           lines={pair.lines}
           now={wallClock}
+          selected={selectedTrain}
+          window={selectedTrain ? windowFor(selectedTrain) : null}
           onHover={setHovered}
           onSelect={selectAndReveal}
+          onClear={() => setSelected(null)}
         />
         )}
       </div>

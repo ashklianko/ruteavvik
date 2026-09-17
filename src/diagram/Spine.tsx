@@ -1,10 +1,10 @@
 import { curveLinear, line as d3line } from 'd3-shape'
 import { useMemo, useState } from 'react'
-import type { ArrivalWindow, CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
-import { arrivalWindow, delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
-import { isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
+import type { CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
 import type { Train } from '../data/model.ts'
-import { delayWords, fmtTime, signed, STATE_WORDS, windowWords } from '../format.ts'
+import { delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
+import { isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
+import { delayWords, fmtTime, signed, STATE_WORDS } from '../format.ts'
 import { buildLayout, COMPACT_GEOM, ghostProgress, isFar, NORMAL_GEOM, ROW_H, xOf, yOfCall, type CrossGeom, type Layout } from './layout.ts'
 import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
 
@@ -15,7 +15,6 @@ interface Props {
   upstreamOrder: string[]
   upstreamRows: string[]
   list: CorridorTrain[]
-  trains: Train[]
   segments: Map<string, SegmentStat>
   observations: SegmentObservation[]
   minor: Set<string>
@@ -159,7 +158,7 @@ function labelSlots(marks: Mark[]): Map<string, { dx: number; dy: number }> {
 }
 
 export function Spine(props: Props) {
-  const { from, to, corridor, upstreamOrder, upstreamRows, list, trains, segments, observations, minor, axisMax, compact = false, now, ghostNow = now, selected, hovered, onSelect, onHover, ariaLabel } = props
+  const { from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, minor, axisMax, compact = false, now, ghostNow = now, selected, hovered, onSelect, onHover, ariaLabel } = props
   const g = compact ? COMPACT_GEOM : NORMAL_GEOM
   const empty = !from || !to
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
@@ -209,14 +208,6 @@ export function Spine(props: Props) {
   const dimmed = focusId !== null || segmentTrains !== null
   const openMembers = openCluster ? new Set(clusters.get(openCluster)?.map((m) => m.ct.train.id)) : null
   const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id || (openMembers?.has(id) ?? false))
-
-  const focusWindow: { ct: CorridorTrain; w: ArrivalWindow } | null = useMemo(() => {
-    if (!focusId || !to) return null
-    const ct = list.find((c) => c.train.id === focusId)
-    if (!ct) return null
-    const w = arrivalWindow(ct, to, trains, now)
-    return w ? { ct, w } : null
-  }, [focusId, list, to, trains, now])
 
 
   return (
@@ -360,36 +351,6 @@ export function Spine(props: Props) {
           </g>
         )
       })}
-
-      {focusWindow && (() => {
-        const yTo = layout.yOfStation(to!)
-        if (yTo === undefined) return null
-        const { w } = focusWindow
-        const d = focusWindow.ct.state.kind === 'measured' ? focusWindow.ct.state.delay : 0
-        const x0 = xOf(d, axisMax, g)
-        const x1 = w.upper !== null ? xOf(d + (w.upper - w.lower) / 1000, axisMax, g) : x0
-        return (
-          <g className="window">
-            <line x1={x0} y1={yTo - 9} x2={x0} y2={yTo + 9} stroke="var(--color-ink)" strokeWidth={1.2} />
-            {w.upper !== null && (
-              <>
-                <line x1={x0} y1={yTo} x2={x1} y2={yTo} stroke="var(--color-ink)" strokeWidth={1.2} />
-                <line x1={x1} y1={yTo - 9} x2={x1} y2={yTo + 9} stroke="var(--color-ink)" strokeWidth={1.2} />
-              </>
-            )}
-            <text
-              x={Math.max(x1, x0) > g.W - 230 ? Math.min(x0, x1) - 10 : Math.max(x1, x0) + 10}
-              y={yTo + 4}
-              textAnchor={Math.max(x1, x0) > g.W - 230 ? 'end' : 'start'}
-              fontSize={12}
-              fill="var(--color-ink)"
-              style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}
-            >
-              {windowWords(w.lower, w.upper, w.sample)}
-            </text>
-          </g>
-        )
-      })()}
 
       {marks.map((m) => {
         const id = m.ct.train.id
