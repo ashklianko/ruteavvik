@@ -299,15 +299,12 @@ body {
 .detail-remaining td:first-child {
   color: var(--color-ink-muted);
 }
-.detail-to td:first-child {
+.detail-end td:first-child {
   color: var(--color-ink);
-  font-weight: 500;
+  font-weight: 600;
 }
 .detail-now td {
   color: var(--color-ink);
-}
-.detail-now td:first-child {
-  font-weight: 600;
 }
 .detail-table td.detail-mark {
   padding-right: 0;
@@ -558,7 +555,8 @@ body {
 
 .tm {
   --c: var(--color-ink-faint);
-  --stack: 0;
+  --dx: 0px;
+  --dy: 0px;
   position: relative;
   display: flex;
   align-items: center;
@@ -567,8 +565,8 @@ body {
   background: none;
   border: 0;
   cursor: pointer;
-  transform: translate(calc(var(--stack) * 9px), calc(var(--stack) * -9px));
-  transition: opacity 200ms;
+  transform: translate(var(--dx), var(--dy));
+  transition: opacity 200ms, transform 300ms;
 }
 .tm-dot {
   width: 13px;
@@ -602,6 +600,12 @@ body {
 }
 .tm-dim {
   opacity: 0.35;
+}
+.tm-fanned .tm-label {
+  font-size: 10px;
+}
+.zoomed-out .tm:not(.tm-lit):not(.tm-sel) .tm-label {
+  display: none;
 }
 
 .map-panel {

@@ -1,7 +1,7 @@
 import type { CorridorTrain, Headline as H, StationMood } from '../data/derive.ts'
 import { MoodChip } from './MoodChip.tsx'
 import { CALM_S, indexOf } from '../data/derive.ts'
-import { delayWords, fmtTime, stopsAway } from '../format.ts'
+import { delayWords, fmtTime, STATE_WORDS, stopsAway } from '../format.ts'
 
 interface Props {
   h: H
@@ -9,6 +9,7 @@ interface Props {
   to: string | null
   following: CorridorTrain[]
   mood: StationMood | null
+  lines?: string[]
   onHover: (id: string | null) => void
   onSelect: (id: string) => void
 }
@@ -37,8 +38,8 @@ function why(ct: CorridorTrain, from: string): React.ReactNode {
   const platform = platformAt(ct, from)
   const who = `${train.line} to ${train.destination}`
   const tail = platform ? `, platform ${platform}` : ''
-  if (state.kind === 'starts-here') return `${who}, starts here${tail}`
-  if (state.kind === 'not-departed') return `${who}, timetable only${tail}`
+  if (state.kind === 'starts-here') return `${who}, ${STATE_WORDS.startsHere}${tail}`
+  if (state.kind === 'not-departed') return `${who}, ${STATE_WORDS.notDeparted}, ${STATE_WORDS.timetableOnly}${tail}`
   if (atPlatform(ct)) return `${who}, at your platform${tail}`
   if (Math.abs(state.delay) <= CALM_S) return `${who}, on time, ${stopsAway(state.stopsAway, state.standing)}${tail}`
   return (
@@ -75,7 +76,7 @@ function ThenItem({ ct, from, onHover, onSelect }: { ct: CorridorTrain; from: st
   )
 }
 
-export function Headline({ h, from, to, following, mood, onHover, onSelect }: Props) {
+export function Headline({ h, from, to, following, mood, lines = [], onHover, onSelect }: Props) {
   if (!from || !to) return <p className="headline">Pick where you are and where you are going.</p>
   if (h.kind === 'none') return <p className="headline">Nothing running from {from} to {to} right now.</p>
 
@@ -87,7 +88,7 @@ export function Headline({ h, from, to, following, mood, onHover, onSelect }: Pr
   return (
     <div className="hero">
       <div className="hero-line">
-        {mood && <MoodChip mood={mood} station={from} />}
+        {mood && <MoodChip mood={mood} station={from} lines={lines} />}
         <button
           type="button"
           className="hero-button"

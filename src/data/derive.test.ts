@@ -91,11 +91,17 @@ describe('stateOf', () => {
     expect(stateOf(t, 'C')).toEqual({ kind: 'not-departed' })
     expect(delayAt(train('2', [-120]).calls[0])).toBe(-120)
   })
-  it('falls back to arrival at a stop with no departure yet', () => {
+  it('treats a standing train as no earlier than its aimed departure', () => {
     const t = train('1', [30, null, null])
     t.calls[1].actualArrival = t.calls[1].aimedArrival! + 50_000
-    expect(delayAt(t.calls[1])).toBe(50)
-    expect(stateOf(t, 'C')).toMatchObject({ kind: 'measured', at: 'B', delay: 50, stopsAway: 1 })
+    expect(delayAt(t.calls[1])).toBe(20)
+    expect(stateOf(t, 'C')).toMatchObject({ kind: 'measured', at: 'B', delay: 20, stopsAway: 1, standing: true })
+    const early = train('2', [0, null, null])
+    early.calls[1].actualArrival = early.calls[1].aimedArrival! - 40_000
+    expect(delayAt(early.calls[1])).toBe(0)
+    const terminus = train('3', [0, null, null])
+    terminus.calls[2] = { ...terminus.calls[2], aimedDeparture: null, actualArrival: terminus.calls[2].aimedArrival! + 90_000 }
+    expect(delayAt(terminus.calls[2])).toBe(90)
   })
 })
 

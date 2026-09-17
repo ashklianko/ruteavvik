@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
-import type { CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
-import { delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
+import type { ArrivalWindow, CorridorTrain, SegmentObservation, SegmentStat } from '../data/derive.ts'
+import { arrivalWindow, delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
+import type { Train } from '../data/model.ts'
 import { displacement, isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
-import { delayWords, fmtTime, signed } from '../format.ts'
-import { buildLayout, isFar, PAD, yOfCall, type Layout } from './layout.ts'
+import { delayWords, fmtTime, signed, STATE_WORDS, windowWords } from '../format.ts'
+import { buildLayout, ghostProgress, isFar, PAD, yOfCall, type Layout } from './layout.ts'
 import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   upstreamOrder: string[]
   upstreamRows: string[]
   list: CorridorTrain[]
+  trains?: Train[]
   segments: Map<string, SegmentStat>
   observations: SegmentObservation[]
   now: number
@@ -31,9 +33,10 @@ const FULL = { HW: 1000, HH: 430, LEFT: 104, RIGHT: 30, BASE: 330, HALFY: 280 }
 const NARROW = { HW: 1000, HH: 560, LEFT: 104, RIGHT: 30, BASE: 450, HALFY: 400 }
 
 
-export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, minor, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
+export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, trains = [], segments, observations, now, ghostNow = now, minor, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
   const { HW, HH, LEFT, RIGHT, BASE, HALFY } = narrow ? NARROW : FULL
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
+  const [openCluster, setOpenCluster] = useState<string | null>(null)
   const yOfDelay = useCallback((s: number) => BASE - displacement(s, HALFY, axisMax), [axisMax, BASE, HALFY])
   const empty = !from || !to
   const layout: Layout = useMemo(
@@ -53,10 +56,8 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
     for (const o of observations) if (segmentKey(o.a, o.b) === hoverSegment && o.at >= since && o.at <= now) m.set(o.trainId, o.added)
     return m
   }, [hoverSegment, observations, now])
-  const dimmed = focusId !== null || segmentTrains !== null
-  const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id)
 
-  const marks = useMemo(() => {
+  const allMarks = useMemo(() => {
     const notDeparted = list.filter((c) => c.state.kind === 'not-departed')
     const startsHere = list.filter((c) => c.state.kind === 'starts-here')
     return list.flatMap((ct) => {
@@ -65,11 +66,11 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
         if (notDeparted[0] !== ct) return []
         const call = train.calls.find((c) => c.station === from)
         const first = call?.aimedDeparture ? fmtTime(call.aimedDeparture) : ''
-        return [{ ct, x: layout.yNotDeparted !== null ? xOfY(layout.yNotDeparted) : LEFT, y: BASE, hollow: true, label: notDeparted.length === 1 ? `${first} not departed` : `${notDeparted.length} not departed`, trail: [] as Array<[number, number]> }]
+        return [{ ct, x: layout.yNotDeparted !== null ? xOfY(layout.yNotDeparted) : LEFT, y: BASE, hollow: true, label: notDeparted.length === 1 ? `${first} ${STATE_WORDS.notDeparted}` : `${notDeparted.length} ${STATE_WORDS.notDeparted}`, trail: [] as Array<[number, number]>, ghost: null as { x: number; due: boolean } | null }]
       }
       if (state.kind === 'starts-here') {
         if (startsHere[0] !== ct) return []
-        return [{ ct, x: xOfY(layout.horizonY), y: BASE, hollow: true, label: startsHere.length === 1 ? `${train.line} starts here` : `${startsHere.length} start here`, trail: [] as Array<[number, number]> }]
+        return [{ ct, x: xOfY(layout.horizonY), y: BASE, hollow: true, label: startsHere.length === 1 ? `${train.line} ${STATE_WORDS.startsHere}` : `${startsHere.length} start here`, trail: [] as Array<[number, number]>, ghost: null as { x: number; due: boolean } | null }]
       }
       const trail: Array<[number, number]> = []
       for (let i = state.index, n = 0; i >= 0 && n < 4; i--) {
@@ -79,18 +80,53 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
         trail.unshift([xOfY(yOfCall(layout, train, i, from ?? '')), yOfDelay(d)])
         n++
       }
+      const x = xOfY(yOfCall(layout, train, state.index, from ?? ''))
+      const gp = ghostProgress(train, state.index, ghostNow)
+      const ghost = gp ? { x: x + (xOfY(yOfCall(layout, train, state.index + 1, from ?? '')) - x) * gp.progress, due: gp.due } : null
       return [
         {
           ct,
-          x: xOfY(yOfCall(layout, train, state.index, from ?? '')),
+          x,
           y: yOfDelay(state.delay),
           hollow: false,
           label: isPinned(state.delay, axisMax) ? `${train.line} » ${delayWords(state.delay)}` : train.line,
           trail,
+          ghost,
         },
       ]
     })
-  }, [list, layout, from, xOfY, yOfDelay, axisMax, BASE, LEFT])
+  }, [list, layout, from, xOfY, yOfDelay, axisMax, BASE, LEFT, ghostNow])
+
+  const clusters = useMemo(() => {
+    const groups = new Map<string, typeof allMarks>()
+    for (const m of allMarks) {
+      if (m.hollow || m.ct.state.kind !== 'measured') continue
+      const key = `${m.ct.state.at}:${Math.round(m.x)}:${Math.round(m.y / 10)}`
+      const grp = groups.get(key)
+      if (grp) grp.push(m)
+      else groups.set(key, [m])
+    }
+    return new Map([...groups].filter(([, grp]) => grp.length > 1))
+  }, [allMarks])
+  const clusterOf = (id: string) => {
+    for (const [key, grp] of clusters) if (grp.some((m) => m.ct.train.id === id)) return key
+    return null
+  }
+  const marks = useMemo(() => {
+    const collapsed = new Set<string>()
+    for (const [key, grp] of clusters) if (key !== openCluster) for (const m of grp.slice(1)) collapsed.add(m.ct.train.id)
+    return allMarks.filter((m) => !collapsed.has(m.ct.train.id))
+  }, [allMarks, clusters, openCluster])
+  const openMembers = openCluster ? new Set(clusters.get(openCluster)?.map((m) => m.ct.train.id)) : null
+  const dimmed = focusId !== null || segmentTrains !== null
+  const isLit = (id: string) => (segmentTrains ? segmentTrains.has(id) : focusId === id || (openMembers?.has(id) ?? false))
+  const focusWindow: { ct: CorridorTrain; w: ArrivalWindow } | null = useMemo(() => {
+    if (!focusId || !to) return null
+    const ct = list.find((c) => c.train.id === focusId)
+    if (!ct) return null
+    const w = arrivalWindow(ct, to, trains, now)
+    return w ? { ct, w } : null
+  }, [focusId, list, to, trains, now])
 
   const labelDy = useMemo(() => {
     const placed: Array<{ x: number; y: number; w: number; h: number }> = marks.map((m) => ({ x: m.x - 8, y: m.y - 8, w: 16, h: 16 }))
@@ -114,7 +150,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
   }, [marks])
 
   return (
-    <svg viewBox={`0 0 ${HW} ${HH}`} role="group" aria-label={ariaLabel ?? 'Line diagram, stations across and delay upwards'} className="spine block h-auto w-full max-w-full select-none" onClick={(e) => e.target === e.currentTarget && onSelect(null)}>
+    <svg viewBox={`0 0 ${HW} ${HH}`} role="group" aria-label={ariaLabel ?? 'Line diagram, stations across and delay upwards'} className="spine block h-auto w-full max-w-full select-none" onClick={(e) => e.target === e.currentTarget && onSelect(null)} onMouseLeave={() => setOpenCluster(null)}>
       <defs>
         <filter id="glow-h" x="-20%" y="-50%" width="140%" height="200%">
           <feGaussianBlur stdDeviation="5" />
@@ -179,7 +215,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
       {!empty &&
         layout.rows.map((row) => {
           const x = xOfY(row.y)
-          const label = row.kind === 'not-departed' ? 'not departed' : row.kind === 'further' ? 'further out' : row.station
+          const label = row.kind === 'not-departed' ? STATE_WORDS.notDeparted : row.kind === 'further' ? 'further out' : row.station
           const isHorizon = row.kind === 'horizon'
           const isMinor = row.minor
           return (
@@ -225,10 +261,52 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
       })}
 
       {marks.map((m) => {
+        if (!m.ghost || focusId !== m.ct.train.id) return null
+        const colour = delayColour(m.ct.state.kind === 'measured' ? m.ct.state.delay : null)
+        return (
+          <g key={`ghost-${m.ct.train.id}`} className="ghost" opacity={0.85}>
+            <line x1={m.x} y1={m.y} x2={m.ghost.x} y2={m.y} stroke={colour} strokeWidth={1} strokeDasharray="2 4" strokeOpacity={0.6} />
+            <g className="ghost-mark" style={{ transform: `translate(${m.ghost.x}px, ${m.y}px)` }}>
+              <circle r={4} fill="var(--color-ground)" stroke={colour} strokeWidth={1.4} strokeDasharray={m.ghost.due ? '2 2' : undefined} />
+            </g>
+          </g>
+        )
+      })}
+
+      {focusWindow &&
+        to &&
+        (() => {
+          const yTo = layout.yOfStation(to)
+          if (yTo === undefined) return null
+          const xTo = xOfY(yTo)
+          const { w } = focusWindow
+          const d = focusWindow.ct.state.kind === 'measured' ? focusWindow.ct.state.delay : 0
+          const y0 = yOfDelay(d)
+          const y1 = w.upper !== null ? yOfDelay(d + (w.upper - w.lower) / 1000) : y0
+          return (
+            <g className="window">
+              <line x1={xTo - 9} y1={y0} x2={xTo + 9} y2={y0} stroke="var(--color-ink)" strokeWidth={1.2} />
+              {w.upper !== null && (
+                <>
+                  <line x1={xTo} y1={y0} x2={xTo} y2={y1} stroke="var(--color-ink)" strokeWidth={1.2} />
+                  <line x1={xTo - 9} y1={y1} x2={xTo + 9} y2={y1} stroke="var(--color-ink)" strokeWidth={1.2} />
+                </>
+              )}
+              <text x={xTo + 12} y={yOfDelay(axisMax * 60) + 14} textAnchor="end" fontSize={12} fill="var(--color-ink)" style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
+                {windowWords(w.lower, w.upper, w.sample)}
+              </text>
+              <line x1={xTo} y1={yOfDelay(axisMax * 60) + 20} x2={xTo} y2={Math.min(y0, y1) - 6} stroke="var(--color-ink)" strokeWidth={0.6} strokeOpacity={0.5} strokeDasharray="2 3" />
+            </g>
+          )
+        })()}
+
+      {marks.map((m) => {
         const id = m.ct.train.id
         const lit = isLit(id)
         const isSel = selected === id
         const segAdded = segmentTrains?.get(id)
+        const clusterKey = clusterOf(id)
+        const cluster = clusterKey && clusterKey !== openCluster ? clusters.get(clusterKey)! : null
         const colour = delayColour(m.ct.state.kind === 'measured' ? m.ct.state.delay : null)
         return (
           <a
@@ -240,20 +318,40 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
               e.preventDefault()
               onSelect(isSel ? null : id)
             }}
-            onMouseEnter={() => onHover(id)}
+            onMouseEnter={() => {
+              onHover(id)
+              if (clusterKey) setOpenCluster(clusterKey)
+            }}
             onMouseLeave={() => onHover(null)}
-            onFocus={() => onHover(id)}
+            onFocus={() => {
+              onHover(id)
+              if (clusterKey) setOpenCluster(clusterKey)
+            }}
             onBlur={() => onHover(null)}
           >
             <title>
               {m.ct.train.line} {m.ct.train.number} to {m.ct.train.destination}
-              {m.ct.state.kind === 'measured' ? `, ${delayWords(m.ct.state.delay)} at ${m.ct.state.at}` : `, ${m.ct.state.kind === 'starts-here' ? 'starts here' : 'not departed yet'}`}
+              {m.ct.state.kind === 'measured' ? `, ${delayWords(m.ct.state.delay)} at ${m.ct.state.at}` : `, ${m.ct.state.kind === 'starts-here' ? STATE_WORDS.startsHere : STATE_WORDS.notDeparted}`}
             </title>
             <circle r={14} fill="transparent" />
-            {m.hollow ? <circle r={5} fill="var(--color-ground)" stroke={colour} strokeWidth={1.5} /> : <circle r={isSel || lit ? 7 : 5.5} fill={colour} stroke={isSel ? 'var(--color-ink)' : 'var(--color-ground)'} strokeWidth={1.5} />}
+            {m.hollow ? (
+              <circle r={5} fill="var(--color-ground)" stroke={colour} strokeWidth={1.5} />
+            ) : cluster ? (
+              <>
+                <circle r={8} fill={colour} fillOpacity={0.25} />
+                <circle r={5.5} fill={colour} stroke="var(--color-ground)" strokeWidth={1.5} />
+                <text y={3.5} textAnchor="middle" className="num" fontSize={8} fontWeight={600} fill="var(--color-ground)">
+                  {cluster.length}
+                </text>
+              </>
+            ) : (
+              <circle r={isSel || lit ? 7 : 5.5} fill={colour} stroke={isSel ? 'var(--color-ink)' : 'var(--color-ground)'} strokeWidth={1.5} />
+            )}
             {(m.label || lit) && (
               <text x={m.x > HW - 230 ? -9 : 9} y={labelDy.get(m.ct.train.id) ?? -8} textAnchor={m.x > HW - 230 ? 'end' : 'start'} className="num" fontSize={11} fill={m.hollow ? 'var(--color-ink-faint)' : 'var(--color-ink)'} style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
-                {segAdded !== undefined
+                {cluster
+                  ? `${cluster.length} trains`
+                  : segAdded !== undefined
                   ? `${m.ct.train.line} ${signed(segAdded)} here`
                   : lit && !m.hollow && m.ct.state.kind === 'measured'
                     ? `${m.ct.train.line} to ${m.ct.train.destination}, ${delayWords(m.ct.state.delay)}, at ${m.ct.state.at}`

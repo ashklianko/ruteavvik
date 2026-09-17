@@ -16,8 +16,10 @@ const plausible = (s: number): number | null => (s < IMPLAUSIBLE_EARLY_S ? null 
 export function delayAt(call: Call): number | null {
   if (call.actualDeparture !== null && call.aimedDeparture !== null)
     return plausible(Math.round((call.actualDeparture - call.aimedDeparture) / 1000))
-  if (call.actualArrival !== null && call.aimedArrival !== null)
-    return plausible(Math.round((call.actualArrival - call.aimedArrival) / 1000))
+  if (call.actualArrival !== null) {
+    if (call.aimedDeparture !== null) return plausible(Math.max(0, Math.round((call.actualArrival - call.aimedDeparture) / 1000)))
+    if (call.aimedArrival !== null) return plausible(Math.round((call.actualArrival - call.aimedArrival) / 1000))
+  }
   return null
 }
 

@@ -10,7 +10,7 @@ labels existed.
 
 | term | meaning |
 |---|---|
-| **measured delay** | `actualDepartureTime − aimedDepartureTime` at a stop the train has passed, in seconds; at a stop with only an arrival recorded, the arrival delay |
+| **measured delay** | `actualDepartureTime − aimedDepartureTime` at a stop the train has passed, in seconds; at a stop with only an arrival recorded, `actualArrivalTime − aimedDepartureTime` floored at zero, since a train cannot leave before its time; at a terminus, the arrival delay |
 | **standing** | a train whose latest recorded event is an arrival: it is at that platform |
 | **trail** | the last four measured delays of one train, oldest first |
 | **verdict** | growing · holding · shrinking, derived from the trail |
@@ -31,7 +31,7 @@ projection is always labelled *if it does not catch up*.
 
 One page. Top row: the pair selector with line chips on the left, the next-departure block
 on the right, both holding a fixed height so the diagram never jumps when their text changes.
-Below: the view links `Now`, `Last hour`, `Map`, an orientation toggle on the `Now` view, then
+Below: the view links `Now`, `Map`, `Last hour`, an orientation toggle on the `Now` view, then
 the chosen view, then the train list. In the bottom right corner sits the connection dot.
 
 Views are hashes: `#now` or none, `#timeline`, `#map`; `#debug` prints the derived corridor
@@ -100,7 +100,8 @@ screens with the tail of a long sentence cut by an ellipsis.
 **Line one.** A station-state chip, then the time, then one sentence.
 
 - The **chip** is a coloured dot and one word for the movement at `from`, from the median
-  delay of the last five trains that actually left the station in the past hour: within a
+  delay of the last five trains that actually left the station in the past hour, counting
+  only the lines chosen in the filter when one is set: within a
   minute *running well*, to three *small delays*, to eight *delays*, beyond that *disrupted*;
   a cancellation at `from` in the past hour or the next half hour is *disrupted* regardless;
   fewer than three departures and no cancellation *too few trains to say*. Hover or focus
@@ -199,7 +200,7 @@ shape with a tail. A growing delay is a trail leaning away from the track line o
 
 Trains stacked on one station within about ten units of displacement, a few seconds on a
 narrow axis, twenty on the widest, collapse into one mark with a count, *3 trains*, that
-opens on hover into its members. Tall orientation only for now.
+opens on hover into its members.
 
 Three states, never blended:
 
@@ -218,9 +219,9 @@ leave the diagram but still feed segment statistics.
 ### Ghost position
 
 A measured train's mark stays at its last measured stop until the next poll. For the hovered
-or selected train only, a smaller hollow mark slides from that stop towards the next one, its
-progress being the time since the recorded departure divided by the timetable run time of the
-segment. It waits at the next row when the train is due but not yet recorded. Arithmetic on a
+or selected train only, in both orientations, a smaller hollow mark slides from that stop
+towards the next one, its progress being the time since the recorded departure divided by
+the timetable run time of the segment. It waits at the next row when the train is due but not yet recorded. Arithmetic on a
 measured departure and the timetable, drawn hollow so it is never mistaken for a measurement.
 No ghost while only an arrival is measured.
 
@@ -288,8 +289,8 @@ Selecting a row or a mark highlights both, dims the rest and expands the row in 
 ## Train detail
 
 Expands under the selected row; does not navigate. Passed stops, at most the last eight, with
-timetable time, recorded time and measured delay; the current stop in bold with a small train
-glyph beside it. Then *below carries +M:SS forward, if it does not catch up* and the remaining
+timetable time, recorded time and measured delay; `from` and `to` in bold, the current stop
+in brighter ink with a small train glyph beside it. Then *below carries +M:SS forward, if it does not catch up* and the remaining
 stops to `to` with timetable time and that time shifted by the carried delay. At the end the
 arrival window sentence. For an unmeasured train only the timetable, and a note saying so.
 
@@ -331,12 +332,14 @@ they are along the real track, and nothing else.
   station to station and coloured by added delay with the diagram's scale and glow, dashed
   below four passes. Hovering a stretch shows `{A} to {B}: steady, +0:34 over 4 trains`.
 - **Stations.** Dots at the corridor and approach rows; `from` and `to` as large solid
-  white dots with bold names that always show; names on every corridor station and the four
-  nearest approach stations, dots only for the rest.
+  white dots with bold names that always show; the diagram's two tiers apply: names on major
+  stations from zoom 9, on minor ones only from zoom 11.5, the pair's names down to zoom 8;
+  train labels hide below zoom 9.5 unless hovered or selected.
 - **Trains.** A mark per measured train at its position: solid when recorded at a station or
   standing, a ring when carried along the track by timetable run time since the last recorded
   departure, dashed ring when due at the next station but not yet recorded. Colour by delay,
-  label the line code. Trains not departed are counted in the note under the map, not drawn.
+  label the line code. Several trains at one point fan out in a small ring around it so none
+  hides another. Trains not departed are counted in the note under the map, not drawn.
 - **Hover** expands the label to line, destination, delay in words and where it was last
   recorded. **Click** opens a panel over the map with line, number, `origin – destination`,
   state, timetable departure and platform at `from`, and the same detail as the list; close
@@ -369,7 +372,7 @@ deferred, see MILESTONES.
   deserve a glyph in the list.
 - Gutter rows collapse when empty; whether that jumps too much across polls is still to be
   judged on a real peak.
-- The wide orientation lacks the tall one's mark clusters, arrival bracket, ghost position
-  and the inline segment readout.
+- The wide orientation lacks the tall one's inline segment readout; clusters, arrival
+  bracket and ghost now exist in both.
 - Station names at 45° in the wide orientation get tight when a corridor has many minor
   stops; a hide-when-crowded rule may be needed.

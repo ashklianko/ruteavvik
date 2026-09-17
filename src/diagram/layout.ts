@@ -161,3 +161,16 @@ export function isFar(layout: Layout, train: Train, callIndex: number, from: str
   if (callIndex >= fromIndex) return false
   return layout.beyondRows(train.calls[callIndex].station)
 }
+
+export function ghostProgress(train: Train, index: number, now: number): { progress: number; due: boolean } | null {
+  const here = train.calls[index]
+  const next = train.calls[index + 1]
+  if (!next || here.actualDeparture === null || here.aimedDeparture === null) return null
+  const nextAimed = next.aimedArrival ?? next.aimedDeparture
+  if (nextAimed === null) return null
+  const run = nextAimed - here.aimedDeparture
+  if (run <= 0) return null
+  const progress = Math.min(1, Math.max(0, (now - here.actualDeparture) / run))
+  if (progress < 0.03) return null
+  return { progress, due: progress >= 1 }
+}

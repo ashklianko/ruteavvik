@@ -1,6 +1,6 @@
 import type { ArrivalWindow } from '../data/derive.ts'
 import { MIN_PASSES, OFFICIAL_LATE_S } from '../data/derive.ts'
-import { fmtTime } from '../format.ts'
+import { windowWords } from '../format.ts'
 
 interface Props {
   to: string | null
@@ -21,18 +21,7 @@ export function Caption({ to, window, lateCount, legend, loaded, fetching, stati
   if (!loaded) return <p className="mt-2 text-sm text-ink-faint">{fetching ? 'Asking Entur.' : stationsFailed ? 'Could not load the station list. Reload to try again.' : null}</p>
   return (
     <p className="mt-2 text-sm text-ink-faint">
-      {window && to && (
-        <>
-          Next arrives {to} <span className="num text-ink-muted">{fmtTime(window.lower)}</span>
-          {window.upper !== null ? (
-            <>
-              <span className="num text-ink-muted">–{fmtTime(window.upper)}</span>, from the last {window.sample} trains.{' '}
-            </>
-          ) : (
-            <> if it does not catch up. </>
-          )}
-        </>
-      )}
+      {window && to && <>Next {windowWords(window.lower, window.upper, window.sample, to).replace(/^Arrives/, 'arrives')}. </>}
       {LEGEND[legend]}
       {lateCount > 0 && (
         <>

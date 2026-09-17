@@ -325,3 +325,31 @@ the deploy and the previous version stays live. Two pushes in quick succession c
 older run.
 
 **Cost.** The source and the recorded snapshots are public. `recordings/` stays out of git.
+
+---
+
+## 22 · A standing train is measured against its departure time
+
+Trains arrive early, dwell, and leave late: over one morning the departure delay exceeded
+the arrival delay by 35 seconds on average. Reading a standing train by its arrival delay
+made it look better than it would be a minute later, and flipped verdicts between *shrinking*
+and *holding* as trains stood and left. A standing train's delay is now its recorded arrival
+against its aimed departure, floored at zero; only at a terminus, where there is no
+departure, is the arrival delay itself used.
+
+**Cost.** A train that arrived early and will leave on time shows *on time* rather than
+*early*, which is what the passenger experiences.
+
+---
+
+## 23 · One model hook, one set of diagram props
+
+`App.tsx` had grown to 470 lines with the same twenty derivations inline and the diagram
+rendered three times with identical props. The derivations now live in
+`useCorridorModel`, which takes the snapshot, the pair, the filter and the clocks and returns
+everything the views need; the component assembles one `diagramProps`, one `listProps` and
+one `captionProps` object and spreads them. The two orientations share the ghost-progress
+arithmetic through `layout.ts`. Behaviour is unchanged; the file halves.
+
+**Cost.** The hook returns a wide bag of values rather than a typed domain object. Good
+enough while there is one consumer.

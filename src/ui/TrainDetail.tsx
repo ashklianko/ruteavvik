@@ -1,15 +1,16 @@
 import type { ArrivalWindow, CorridorTrain } from '../data/derive.ts'
 import { delayAt, indexOf } from '../data/derive.ts'
-import { fmtTime, signed } from '../format.ts'
+import { fmtTime, signed, STATE_WORDS, windowWords } from '../format.ts'
 import { Emblem } from './Emblem.tsx'
 
 interface Props {
   ct: CorridorTrain
+  from?: string
   to: string
   window: ArrivalWindow | null
 }
 
-export function TrainDetail({ ct, to, window }: Props) {
+export function TrainDetail({ ct, from, to, window }: Props) {
   const { train, state } = ct
   const toIndex = indexOf(train, to)
   const current = state.kind === 'measured' ? state.index : -1
@@ -29,7 +30,7 @@ export function TrainDetail({ ct, to, window }: Props) {
               const d = delayAt(c)
               const isNow = i === passed.length - 1
               return (
-                <tr key={c.position} className={isNow ? 'detail-now' : ''} aria-current={isNow ? 'step' : undefined}>
+                <tr key={c.position} className={`${isNow ? 'detail-now' : ''} ${c.station === from || c.station === to ? 'detail-end' : ''}`} aria-current={isNow ? 'step' : undefined}>
                   <td>{c.station}</td>
                   <td className="num text-ink-faint">{aimed !== null ? fmtTime(aimed) : ''}</td>
                   <td className="num">{actual !== null ? fmtTime(actual) : ''}</td>
@@ -58,7 +59,7 @@ export function TrainDetail({ ct, to, window }: Props) {
             {remaining.map((c) => {
               const aimed = c.aimedArrival ?? c.aimedDeparture
               return (
-                <tr key={c.position} className={c.station === to ? 'detail-to' : ''}>
+                <tr key={c.position} className={c.station === from || c.station === to ? 'detail-end' : ''}>
                   <td>{c.station}</td>
                   <td className="num text-ink-faint">{aimed !== null ? fmtTime(aimed) : ''}</td>
                   <td className="num">{aimed !== null && delay !== null ? fmtTime(aimed + delay * 1000) : ''}</td>
@@ -69,17 +70,10 @@ export function TrainDetail({ ct, to, window }: Props) {
           </tbody>
         </table>
       )}
-      {state.kind !== 'measured' && <p className="detail-note">Nothing measured yet. Times above are the timetable only.</p>}
+      {state.kind !== 'measured' && <p className="detail-note">Nothing measured yet, {STATE_WORDS.timetableOnly}.</p>}
       {window && (
         <p className="detail-window">
-          Arrives {to} <span className="num text-ink">{fmtTime(window.lower)}</span>
-          {window.upper !== null ? (
-            <>
-              <span className="num text-ink">–{fmtTime(window.upper)}</span>, from what the last {window.sample} trains did on this stretch.
-            </>
-          ) : (
-            <> if it does not catch up. Too few trains ahead to say more.</>
-          )}
+          {windowWords(window.lower, window.upper, window.sample, to)}.{window.upper === null ? ' Too few trains ahead to say more.' : ''}
         </p>
       )}
     </div>

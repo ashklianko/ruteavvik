@@ -25,3 +25,15 @@ export function delayWords(seconds: number): string {
   const m = Math.max(1, Math.round(Math.abs(seconds) / 60))
   return seconds > 0 ? `${m} min late` : `${m} min early`
 }
+
+export const STATE_WORDS = {
+  notDeparted: 'not departed yet',
+  startsHere: 'starts here',
+  timetableOnly: 'timetable only',
+} as const
+
+export function windowWords(lower: number, upper: number | null, sample: number, to?: string): string {
+  const head = to ? `Arrives ${to} ` : 'arrives '
+  if (upper === null) return `${head}${fmtTime(lower)} if it does not catch up`
+  return `${head}${fmtTime(lower)}–${fmtTime(upper)}, from the last ${sample} trains`
+}

@@ -2,7 +2,7 @@ import type { ArrivalWindow, CorridorTrain, Visible } from '../data/derive.ts'
 import { indexOf } from '../data/derive.ts'
 import { TrainDetail } from './TrainDetail.tsx'
 import { lineColour } from '../diagram/palette.ts'
-import { delayWords, fmtTime, signed, stopsAway } from '../format.ts'
+import { delayWords, fmtTime, signed, STATE_WORDS, stopsAway } from '../format.ts'
 
 interface Props {
   list: CorridorTrain[]
@@ -19,8 +19,8 @@ interface Props {
 function stateText(ct: CorridorTrain): React.ReactNode {
   const s = ct.state
   if (ct.cancelled) return <span className="text-late-3">cancelled</span>
-  if (s.kind === 'starts-here') return 'originates here'
-  if (s.kind === 'not-departed') return 'not departed'
+  if (s.kind === 'starts-here') return STATE_WORDS.startsHere
+  if (s.kind === 'not-departed') return STATE_WORDS.notDeparted
   const where = ct.group === 'ahead' ? `past ${s.at}` : s.stopsAway <= 0 ? stopsAway(0, s.standing) : `at ${s.at}, ${stopsAway(s.stopsAway, s.standing)}`
   return (
     <>
@@ -72,7 +72,7 @@ function Row({ ct, from, to, windowFor, selected, hovered, onSelect, onHover }: 
         </span>
         <span className="state">{stateText(ct)}</span>
       </button>
-      {isSel && to && <TrainDetail ct={ct} to={to} window={windowFor(ct)} />}
+      {isSel && to && <TrainDetail ct={ct} from={from ?? undefined} to={to} window={windowFor(ct)} />}
     </li>
   )
 }

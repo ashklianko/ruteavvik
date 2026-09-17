@@ -120,7 +120,8 @@ service-date trap, the empty-stock arrival trap.
 1. ~~Deploy~~ Live at https://ashklianko.github.io/ruteavvik/ via GitHub Pages from `main`,
    repository public, 2026-09-17 (decision 21).
 2. Keyboard and screen-reader pass, deferred by the owner.
-3. Wide orientation parity: mark clusters, the arrival bracket, the ghost position.
+3. ~~Wide orientation parity~~ clusters, bracket and ghost ported 2026-09-17; the inline
+   segment readout stays tall-only by choice.
 4. Pick two or three peak recordings from `recordings/` into `public/snapshots/` as the
    canonical test data and point the tests at them.
 5. Light theme via `prefers-color-scheme` if the dark one fails on a sunny platform.

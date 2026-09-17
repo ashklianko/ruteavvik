@@ -1,15 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { aggregateSegments, arrivalWindow, corridorStations, corridorTrains, headlineOf, officiallyLateCount, pickUpstreamRows, segmentObservations, servesCorridor, stationMood, trainsAsOf, upstreamOrder, upstreamRowCount, visibleTrains } from './data/derive.ts'
-import type { CorridorTrain } from './data/derive.ts'
-import { trainsFromSnapshot } from './data/model.ts'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { POLL_MS, snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
 import { Debug } from './debug/Debug.tsx'
-import { axisMax as pickAxisMax } from './data/displacement.ts'
 import { Marey } from './diagram/Marey.tsx'
-import { familyOf } from './diagram/palette.ts'
 import { Spine } from './diagram/Spine.tsx'
 import { SpineH } from './diagram/SpineH.tsx'
 import { usePatterns } from './data/usePatterns.ts'
+import { useCorridorModel } from './app/useCorridorModel.ts'
 
 const RouteMap = lazy(() => import('./map/RouteMap.tsx'))
 import { fmtTime } from './format.ts'
@@ -138,64 +134,34 @@ function Corridor({ view }: { view: View }) {
   }, [])
 
   const snap = corridor.data
-  const fromName = snapshot ? (snap?.from ?? pair.from) : pair.from
-  const toName = snapshot ? (snap?.to ?? pair.to) : pair.to
-  const coarseClock = Math.floor(wallClock / 10_000) * 10_000
-  const liveNow = snapshot && snap ? Date.parse(snap.recordedAt) : coarseClock
-  const now = scrub ?? liveNow
-  const ghostNow = snapshot && snap ? liveNow : scrub ?? wallClock
-
-  const liveTrains = useMemo(() => (snap ? trainsFromSnapshot(snap) : []), [snap])
-  const trains = useMemo(() => (scrub !== null ? trainsAsOf(liveTrains, scrub) : liveTrains), [liveTrains, scrub])
-  const fullList = useMemo(() => (fromName && toName ? corridorTrains(trains, fromName, toName) : []), [trains, fromName, toName])
-  const available = useMemo(() => [...new Set(fullList.map((c) => c.train.line))].sort(), [fullList])
-  const filtered = useMemo(() => (pair.lines.length ? fullList.filter((c) => pair.lines.includes(c.train.line)) : fullList), [fullList, pair.lines])
-  const visible = useMemo(() => visibleTrains(filtered, now), [filtered, now])
-  const list = visible.shown
-  const corridorRows = useMemo(() => (fromName && toName ? corridorStations(filtered, fromName, toName) : []), [filtered, fromName, toName])
-  const relevant = useMemo(() => filtered.map((c) => c.train), [filtered])
-  const servingAll = useMemo(
-    () => (fromName && toName ? liveTrains.filter((t) => servesCorridor(t, fromName, toName) && (pair.lines.length === 0 || pair.lines.includes(t.line))) : []),
-    [liveTrains, fromName, toName, pair.lines],
-  )
-  const upOrder = useMemo(() => (fromName ? upstreamOrder(relevant, fromName) : []), [relevant, fromName])
-  const upRows = useMemo(
-    () => (fromName ? pickUpstreamRows(upOrder, relevant, fromName, upstreamRowCount(Math.max(1, corridorRows.length - 1))) : []),
-    [upOrder, relevant, fromName, corridorRows],
-  )
-  const observations = useMemo(() => segmentObservations(trains), [trains])
-  const segments = useMemo(() => aggregateSegments(observations, now), [observations, now])
-  const mareyRows = useMemo(() => [...upRows].reverse().concat(corridorRows), [upRows, corridorRows])
+  const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub })
+  const { fromName, toName, liveNow, now, ghostNow, trains, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, windowFor, headlineWindow, lateCount, ariaLabel } = m
   const patterns = usePatterns(view === 'map' ? relevant : [])
-  const minorStations = useMemo(() => {
-    const regional = relevant.filter((t) => familyOf(t.line) === 'regional' || familyOf(t.line) === 'airport')
-    if (regional.length === 0) return new Set<string>()
-    const served = new Set<string>()
-    for (const t of regional) for (const call of t.calls) served.add(call.station)
-    const out = new Set<string>()
-    for (const station of [...upRows, ...corridorRows]) {
-      if (station === fromName || station === toName) continue
-      if (!served.has(station)) out.add(station)
-    }
-    return out
-  }, [relevant, upRows, corridorRows, fromName, toName])
-  const headline = useMemo(() => headlineOf(list), [list])
-  const axisMax = useMemo(() => pickAxisMax(list.flatMap((c) => (c.state.kind === 'measured' ? [c.state.delay] : []))), [list])
-  const mood = useMemo(() => (fromName && snap ? stationMood(trains, fromName, now) : null), [trains, fromName, now, snap])
-  const following = useMemo(() => {
-    const approaching = list.filter((c) => c.group === 'approaching' && !c.cancelled)
-    const next = 'train' in headline ? headline.train : approaching[0]
-    return approaching.filter((c) => c !== next).slice(0, 2)
-  }, [list, headline])
-  const windowFor = (ct: CorridorTrain) => (toName ? arrivalWindow(ct, toName, trains, now) : null)
-  const headlineWindow = 'train' in headline ? windowFor(headline.train) : null
-  const lateCount = useMemo(() => officiallyLateCount(trains, now), [trains, now])
 
-  const ariaLabel = (() => {
-    if (!fromName || !toName) return 'Empty line diagram. Pick a station pair to see trains.'
-    const measured = list.filter((c) => c.state.kind === 'measured')
-    return `Line diagram from ${fromName} to ${toName}: ${list.length} trains, ${measured.length} measured.`
-  })()
+  const diagramProps = {
+    from: fromName,
+    to: toName,
+    corridor: corridorRows,
+    upstreamOrder: upOrder,
+    upstreamRows: upRows,
+    list,
+    trains,
+    segments,
+    observations,
+    minor: minorStations,
+    axisMax,
+    now,
+    ghostNow,
+    selected,
+    hovered,
+    onSelect: selectAndReveal,
+    onHover: setHovered,
+    ariaLabel,
+  }
+  const listProps = { list, from: fromName, to: toName, later: visible, windowFor, selected, hovered, onSelect: setSelected, onHover: setHovered }
+  const captionProps = { to: toName, window: headlineWindow, lateCount, loaded: Boolean(corridor.dataUpdatedAt), fetching: corridor.isFetching, stationsFailed: stations.isError }
+  const hintText = orientation === 'wide' ? 'On the line means on time. Higher means later, by the minutes on the scale. Tap a train to follow it.' : 'On the line means on time. Drifting right means late, by the minutes on the scale. Tap a train to follow it.'
+  const showHint = hint && fromName && toName && list.length > 0
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-[1600px] flex-col gap-5 px-4 py-6 sm:px-8">
@@ -225,27 +191,28 @@ function Corridor({ view }: { view: View }) {
           to={toName}
           following={following}
           mood={mood}
+          lines={pair.lines}
           onHover={setHovered}
           onSelect={selectAndReveal}
         />
       </div>
 
       <nav className="mb-3 flex gap-4 text-sm" aria-label="View">
-            <a href="#now" className={`view ${view === 'now' ? 'view-current' : ''}`} aria-current={view === 'now' ? 'page' : undefined}>
-              Now
-            </a>
-            <a href="#timeline" className={`view ${view === 'timeline' ? 'view-current' : ''}`} aria-current={view === 'timeline' ? 'page' : undefined}>
-              Last hour
-            </a>
-            <a href="#map" className={`view ${view === 'map' ? 'view-current' : ''}`} aria-current={view === 'map' ? 'page' : undefined}>
-              Map
-            </a>
-            {view === 'now' && (
-              <button type="button" className="view view-toggle" onClick={toggleOrientation} title={orientation === 'wide' ? 'Switch to the vertical layout' : 'Switch to the horizontal layout'}>
-                {orientation === 'wide' ? '⇅ vertical' : '⇆ horizontal'}
-              </button>
-            )}
-          </nav>
+        <a href="#now" className={`view ${view === 'now' ? 'view-current' : ''}`} aria-current={view === 'now' ? 'page' : undefined}>
+        Now
+        </a>        <a href="#map" className={`view ${view === 'map' ? 'view-current' : ''}`} aria-current={view === 'map' ? 'page' : undefined}>
+        Map
+        </a>
+
+        <a href="#timeline" className={`view ${view === 'timeline' ? 'view-current' : ''}`} aria-current={view === 'timeline' ? 'page' : undefined}>
+        Last hour
+        </a>
+        {view === 'now' && (
+        <button type="button" className="view view-toggle" onClick={toggleOrientation} title={orientation === 'wide' ? 'Switch to the vertical layout' : 'Switch to the horizontal layout'}>
+        {orientation === 'wide' ? '⇅ vertical' : '⇆ horizontal'}
+        </button>
+        )}
+      </nav>
       {view === 'map' ? (
         fromName && toName ? (
           <Suspense fallback={<p className="text-sm text-ink-faint">Loading the map.</p>}>
@@ -257,6 +224,7 @@ function Corridor({ view }: { view: View }) {
               segments={segments}
               corridor={corridorRows}
               upstreamRows={upRows}
+              minor={minorStations}
               now={now}
               ghostNow={ghostNow}
               selected={selected}
@@ -272,128 +240,64 @@ function Corridor({ view }: { view: View }) {
       ) : view === 'now' && orientation === 'wide' ? (
         <div className="grid flex-1 gap-8 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)]">
           <div className="min-w-0">
-          <SpineH
-            from={fromName}
-            to={toName}
-            corridor={corridorRows}
-            upstreamOrder={upOrder}
-            upstreamRows={upRows}
-            list={list}
-            segments={segments}
-            observations={observations}
-            now={now}
-            minor={minorStations}
-            axisMax={axisMax}
-            narrow={sideBySide}
-            ariaLabel={ariaLabel}
-            selected={selected}
-            hovered={hovered}
-            onSelect={selectAndReveal}
-            onHover={setHovered}
-          />
-          {hint && fromName && toName && list.length > 0 && (
-            <p className="mt-1 text-sm text-ink-muted">On the line means on time. Higher means later, by the minutes on the scale. Tap a train to follow it.</p>
-          )}
-          <Caption to={toName} window={headlineWindow} lateCount={lateCount} legend="segments" loaded={Boolean(corridor.dataUpdatedAt)} fetching={corridor.isFetching} stationsFailed={stations.isError} />
+            <SpineH {...diagramProps} narrow={sideBySide} />
+            {showHint && <p className="mt-1 text-sm text-ink-muted">{hintText}</p>}
+            <Caption {...captionProps} legend="segments" />
           </div>
-          <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+          <TrainList {...listProps} />
         </div>
       ) : view === 'timeline' ? (
         <>
           <div className="grid gap-8 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="min-w-0">
-              {view === 'timeline' && fromName && toName && (
-                          <Marey
-                            from={fromName}
-                            to={toName}
-                            rows={mareyRows}
-                            trains={servingAll}
-                            now={liveNow}
-                            selected={selected}
-                            hovered={hovered}
-                            onSelect={setSelected}
-                            onHover={setHovered}
-                            scrub={scrub}
-                            onScrub={setScrub}
-                            ariaLabel={`Time chart from ${fromName} to ${toName}: ${servingAll.length} trains over the last hundred minutes, recorded times as solid lines, timetable dashed.`}
-                          />
-                        )}
-              {view === 'timeline' && fromName && toName && (
-                          <p className="mt-1 mb-3 text-sm text-ink-faint">
-                            {scrub !== null ? (
-                              <>
-                                Below, the line as it was at <span className="num text-ink">{fmtTime(scrub)}</span>.
-                              </>
-                            ) : (
-                              'Move along the time axis to see the line as it was at that moment.'
-                            )}
-                          </p>
-                        )}
+              {fromName && toName && (
+                <>
+                  <Marey
+                    from={fromName}
+                    to={toName}
+                    rows={mareyRows}
+                    trains={servingAll}
+                    now={liveNow}
+                    selected={selected}
+                    hovered={hovered}
+                    onSelect={selectAndReveal}
+                    onHover={setHovered}
+                    scrub={scrub}
+                    onScrub={setScrub}
+                    compact={compact}
+                    ariaLabel={`Time chart from ${fromName} to ${toName}: ${servingAll.length} trains over the last hundred minutes, recorded times as solid lines, timetable dashed.`}
+                  />
+                  <p className="mt-1 mb-3 text-sm text-ink-faint">
+                    {scrub !== null ? (
+                      <>
+                        Beside, the line as it was at <span className="num text-ink">{fmtTime(scrub)}</span>.
+                      </>
+                    ) : (
+                      'Move along the time axis to see the line as it was at that moment.'
+                    )}
+                  </p>
+                </>
+              )}
             </div>
             {!compact && (
-            <div className="min-w-0">
-              <Spine
-                          from={fromName}
-                          to={toName}
-                          corridor={corridorRows}
-                          upstreamOrder={upOrder}
-                          upstreamRows={upRows}
-                          list={list}
-                          trains={trains}
-                          segments={segments}
-                          observations={observations}
-                          minor={minorStations}
-                          axisMax={axisMax}
-                          compact={compact}
-                          now={now}
-                          ghostNow={ghostNow}
-                          selected={selected}
-                          hovered={hovered}
-                          onSelect={selectAndReveal}
-                          onHover={setHovered}
-                          ariaLabel={ariaLabel}
-                        />
-            </div>
+              <div className="min-w-0">
+                <Spine {...diagramProps} />
+              </div>
             )}
           </div>
-          <Caption to={toName} window={headlineWindow} lateCount={lateCount} legend="timeline" loaded={Boolean(corridor.dataUpdatedAt)} fetching={corridor.isFetching} stationsFailed={stations.isError} />
+          <Caption {...captionProps} legend="timeline" />
           <div className="max-w-2xl">
-            <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+            <TrainList {...listProps} />
           </div>
         </>
       ) : (
         <div className="grid flex-1 gap-8 min-[900px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="min-w-0">
-            <Spine
-                        from={fromName}
-                        to={toName}
-                        corridor={corridorRows}
-                        upstreamOrder={upOrder}
-                        upstreamRows={upRows}
-                        list={list}
-                        trains={trains}
-                        segments={segments}
-                        observations={observations}
-                        minor={minorStations}
-                        axisMax={axisMax}
-                        compact={compact}
-                        now={now}
-                        ghostNow={ghostNow}
-                        selected={selected}
-                        hovered={hovered}
-                        onSelect={(id) => {
-                          dismissHint()
-                          setSelected(id)
-                        }}
-                        onHover={setHovered}
-                        ariaLabel={ariaLabel}
-                      />
-            {hint && fromName && toName && list.length > 0 && (
-                        <p className="mt-1 text-sm text-ink-muted">On the line means on time. Drifting right means late, by the minutes on the scale. Tap a train to follow it.</p>
-                      )}
-            <Caption to={toName} window={headlineWindow} lateCount={lateCount} legend="segments" loaded={Boolean(corridor.dataUpdatedAt)} fetching={corridor.isFetching} stationsFailed={stations.isError} />
+            <Spine {...diagramProps} compact={compact} />
+            {showHint && <p className="mt-1 text-sm text-ink-muted">{hintText}</p>}
+            <Caption {...captionProps} legend="segments" />
           </div>
-          <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+          <TrainList {...listProps} />
         </div>
       )}
       <Status

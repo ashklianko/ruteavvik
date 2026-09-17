@@ -8,7 +8,7 @@ import type { ArrivalWindow, CorridorTrain, SegmentStat } from '../data/derive.t
 import { MIN_PASSES, segmentKey } from '../data/derive.ts'
 import { positionAlong, stopIndex, subPath, type LonLat, type Pattern } from '../data/geometry.ts'
 import { BAND_LABEL, delayColour } from '../diagram/palette.ts'
-import { delayWords, fmtTime, signed } from '../format.ts'
+import { delayWords, fmtTime, signed, STATE_WORDS } from '../format.ts'
 import { TrainDetail } from '../ui/TrainDetail.tsx'
 
 interface Props {
@@ -19,6 +19,7 @@ interface Props {
   segments: Map<string, SegmentStat>
   corridor: string[]
   upstreamRows: string[]
+  minor: Set<string>
   now: number
   ghostNow?: number
   selected: string | null
@@ -68,7 +69,7 @@ function place(ct: CorridorTrain, p: Pattern, now: number): Placed | null {
   return pos ? { ct, lonLat: pos, moving: progress < 1, due: progress >= 1 } : null
 }
 
-export default function RouteMap({ from, to, list, patterns, segments, corridor, upstreamRows, now, ghostNow = now, selected, hovered, onSelect, onHover, windowFor }: Props) {
+export default function RouteMap({ from, to, list, patterns, segments, corridor, upstreamRows, minor, now, ghostNow = now, selected, hovered, onSelect, onHover, windowFor }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markers = useRef(new Map<string, Marker>())
@@ -119,14 +120,25 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
         id: 'station-labels',
         type: 'symbol',
         source: 'stations',
+        minzoom: 9,
         filter: ['all', ['get', 'major'], ['!', ['get', 'end']]],
         layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'] },
         paint: { 'text-color': '#a9baba', 'text-halo-color': '#0b1417', 'text-halo-width': 1.4 },
       })
       map.addLayer({
+        id: 'minor-labels',
+        type: 'symbol',
+        source: 'stations',
+        minzoom: 11.5,
+        filter: ['all', ['!', ['get', 'major']], ['!', ['get', 'end']]],
+        layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-offset': [0, 1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'] },
+        paint: { 'text-color': '#7d9094', 'text-halo-color': '#0b1417', 'text-halo-width': 1.2 },
+      })
+      map.addLayer({
         id: 'end-labels',
         type: 'symbol',
         source: 'stations',
+        minzoom: 8,
         filter: ['get', 'end'],
         layout: { 'text-field': ['get', 'name'], 'text-size': 14, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
         paint: { 'text-color': '#e6edea', 'text-halo-color': '#0b1417', 'text-halo-width': 1.8 },
@@ -141,6 +153,11 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
         setTip(null)
         map.getCanvas().style.cursor = ''
       })
+      const applyZoomClass = () => {
+        if (container.current) container.current.classList.toggle('zoomed-out', map.getZoom() < 9.5)
+      }
+      map.on('zoom', applyZoomClass)
+      applyZoomClass()
       setReady(true)
     })
     mapRef.current = map
@@ -195,11 +212,12 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
         }
       }
       if (!lonLat) continue
-      const major = name === from || name === to || corridor.includes(name) || upstreamRows.indexOf(name) < 4
-      features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: lonLat }, properties: { name, major, here: name === from, end: name === from || name === to } })
+      const end = name === from || name === to
+      const major = !minor.has(name)
+      features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: lonLat }, properties: { name, major, here: name === from, end } })
     }
     return features
-  }, [usedPatterns, upstreamRows, corridor, from, to])
+  }, [usedPatterns, upstreamRows, corridor, from, to, minor])
 
   const placed = useMemo(() => {
     const out: Placed[] = []
@@ -246,13 +264,26 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
     const map = mapRef.current
     if (!map || !ready) return
     const alive = new Set<string>()
-    const seenAt = new Map<string, number>()
+    const groups = new Map<string, Placed[]>()
+    for (const pl of placed) {
+      const posKey = `${pl.lonLat[0].toFixed(4)},${pl.lonLat[1].toFixed(4)}`
+      const grp = groups.get(posKey)
+      if (grp) grp.push(pl)
+      else groups.set(posKey, [pl])
+    }
+    const offsets = new Map<string, [number, number]>()
+    for (const grp of groups.values()) {
+      if (grp.length < 2) continue
+      const r = grp.length === 2 ? 11 : 15
+      grp.forEach((pl, i) => {
+        const a = -Math.PI / 2 + (2 * Math.PI * i) / grp.length
+        offsets.set(pl.ct.train.id, [Math.cos(a) * r, Math.sin(a) * r])
+      })
+    }
     for (const pl of placed) {
       const id = pl.ct.train.id
       alive.add(id)
-      const posKey = `${pl.lonLat[0].toFixed(4)},${pl.lonLat[1].toFixed(4)}`
-      const stack = seenAt.get(posKey) ?? 0
-      seenAt.set(posKey, stack + 1)
+      const [dx, dy] = offsets.get(id) ?? [0, 0]
       let marker = markers.current.get(id)
       if (!marker) {
         const el = document.createElement('button')
@@ -274,7 +305,9 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       const s = pl.ct.state
       const delay = s.kind === 'measured' ? s.delay : null
       el.style.setProperty('--c', delayColour(delay))
-      el.style.setProperty('--stack', String(stack))
+      el.style.setProperty('--dx', `${dx}px`)
+      el.style.setProperty('--dy', `${dy}px`)
+      el.classList.toggle('tm-fanned', dx !== 0 || dy !== 0)
       el.classList.toggle('tm-ring', pl.moving || pl.due)
       el.classList.toggle('tm-due', pl.due)
       const lit = focusId === id
@@ -319,7 +352,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       )}
       <p className="route-map-note">
         Solid marks are recorded at a station, rings are carried along the track by the timetable since the last recorded stop. Track coloured by the delay it adds.
-        {notDeparted > 0 && ` ${notDeparted} ${notDeparted === 1 ? 'train has' : 'trains have'} not departed yet.`}
+        {notDeparted > 0 && ` ${notDeparted} ${notDeparted === 1 ? 'train has' : 'trains have'} ${STATE_WORDS.notDeparted}.`}
         {unplaced > 0 && ` ${unplaced} without track geometry yet.`}
       </p>
       {chosen && (
@@ -334,14 +367,14 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
             {chosen.state.kind === 'measured'
               ? `${delayWords(chosen.state.delay)}, ${chosen.state.verdict}, ${chosen.state.standing ? 'standing at' : 'last recorded at'} ${chosen.state.at}`
               : chosen.state.kind === 'starts-here'
-                ? 'starts here, nothing measured yet'
-                : 'not departed yet, timetable only'}
+                ? `${STATE_WORDS.startsHere}, nothing measured yet`
+                : `${STATE_WORDS.notDeparted}, ${STATE_WORDS.timetableOnly}`}
             {(() => {
               const call = chosen.train.calls.find((c) => c.station === from)
               return call?.aimedDeparture ? `. Timetable ${fmtTime(call.aimedDeparture)} from ${from}${call.platform ? `, platform ${call.platform}` : ''}.` : ''
             })()}
           </p>
-          <TrainDetail ct={chosen} to={to} window={windowFor(chosen)} />
+          <TrainDetail ct={chosen} from={from} to={to} window={windowFor(chosen)} />
         </aside>
       )}
     </div>

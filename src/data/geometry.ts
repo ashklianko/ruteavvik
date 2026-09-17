@@ -91,19 +91,28 @@ export function stopIndex(p: Pattern, station: string, hint?: number): number {
   return p.stops.findIndex((s) => s.station === station)
 }
 
+const MAX_STORED = 40
+const decoded = new Map<string, Pattern>()
+let stored: Record<string, RawPattern> | null = null
+
 function readCache(): Record<string, RawPattern> {
+  if (stored) return stored
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}') as Record<string, RawPattern>
+    stored = JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}') as Record<string, RawPattern>
   } catch {
-    return {}
+    stored = {}
   }
+  return stored
 }
 
-function writeCache(cache: Record<string, RawPattern>) {
+function writeCache(cache: Record<string, RawPattern>, recent: string[]) {
+  const keep = new Set(recent.slice(-MAX_STORED))
+  const evictable = Object.keys(cache).filter((id) => !keep.has(id))
+  for (const id of evictable.slice(0, Math.max(0, Object.keys(cache).length - MAX_STORED))) delete cache[id]
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
   } catch {
-    /* quota or unavailable */
+    /* quota or unavailable; the in-memory copy still serves this session */
   }
 }
 
@@ -120,11 +129,18 @@ export async function fetchPatterns(wanted: Array<{ patternId: string; journeyId
       if (jp) cache[jp.id] = jp
     }
   }
-  if (toFetch.length) writeCache(cache)
+  if (toFetch.length) writeCache(cache, wanted.map((w) => w.patternId))
   const out = new Map<string, Pattern>()
   for (const w of wanted) {
-    const raw = cache[w.patternId]
-    if (raw && !out.has(w.patternId)) out.set(w.patternId, decodePattern(raw))
+    if (out.has(w.patternId)) continue
+    let p = decoded.get(w.patternId)
+    if (!p) {
+      const raw = cache[w.patternId]
+      if (!raw) continue
+      p = decodePattern(raw)
+      decoded.set(w.patternId, p)
+    }
+    out.set(w.patternId, p)
   }
   return out
 }

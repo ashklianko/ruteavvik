@@ -4,8 +4,8 @@ import type { ArrivalWindow, CorridorTrain, SegmentObservation, SegmentStat } fr
 import { arrivalWindow, delayAt, MIN_PASSES, segmentKey, WINDOW_MS } from '../data/derive.ts'
 import { isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
 import type { Train } from '../data/model.ts'
-import { delayWords, fmtTime, signed } from '../format.ts'
-import { buildLayout, COMPACT_GEOM, isFar, NORMAL_GEOM, ROW_H, xOf, yOfCall, type CrossGeom, type Layout } from './layout.ts'
+import { delayWords, fmtTime, signed, STATE_WORDS, windowWords } from '../format.ts'
+import { buildLayout, COMPACT_GEOM, ghostProgress, isFar, NORMAL_GEOM, ROW_H, xOf, yOfCall, type CrossGeom, type Layout } from './layout.ts'
 import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
 
 interface Props {
@@ -63,18 +63,11 @@ const curve = d3line<[number, number]>()
   .curve(curveLinear)
 
 function ghostOf(train: Train, index: number, layout: Layout, from: string, x: number, now: number): Mark['ghost'] {
-  const here = train.calls[index]
-  const next = train.calls[index + 1]
-  if (!next || here.actualDeparture === null || here.aimedDeparture === null) return null
-  const nextAimed = next.aimedArrival ?? next.aimedDeparture
-  if (nextAimed === null) return null
-  const run = nextAimed - here.aimedDeparture
-  if (run <= 0) return null
-  const progress = Math.min(1, Math.max(0, (now - here.actualDeparture) / run))
-  if (progress < 0.03) return null
+  const p = ghostProgress(train, index, now)
+  if (!p) return null
   const y0 = yOfCall(layout, train, index, from)
   const y1 = yOfCall(layout, train, index + 1, from)
-  return { x, y: y0 + (y1 - y0) * progress, due: progress >= 1 }
+  return { x, y: y0 + (y1 - y0) * p.progress, due: p.due }
 }
 
 function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: number, max: AxisMax, g: CrossGeom): Mark[] {
@@ -105,7 +98,7 @@ function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: numbe
       const label = startsHere.length === 1 ? train.line : `${startsHere.length}`
       const sub =
         startsHere.length === 1
-          ? 'starts here'
+          ? STATE_WORDS.startsHere
           : `start here, next ${fmtTime(train.calls.find((c) => c.station === from)?.aimedDeparture ?? 0)}`
       marks.push({ ct, x: g.SPINE_X, y: layout.horizonY, hollow: true, label, sub, trail: [], pinned: false, ghost: null })
       continue
@@ -300,7 +293,7 @@ export function Spine(props: Props) {
       {!empty &&
         layout.rows.map((row) => {
           if (row.kind === 'horizon') return null
-          const label = row.kind === 'not-departed' ? 'not departed yet' : row.kind === 'further' ? 'further out' : row.station
+          const label = row.kind === 'not-departed' ? STATE_WORDS.notDeparted : row.kind === 'further' ? 'further out' : row.station
           const isStation = row.kind === 'corridor' || row.kind === 'upstream'
           return (
             <g key={`row-${row.kind}-${'station' in row ? row.station : ''}`}>
@@ -392,15 +385,7 @@ export function Spine(props: Props) {
               fill="var(--color-ink)"
               style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}
             >
-              <tspan fill="var(--color-ink-muted)">arrives </tspan>
-              <tspan className="num">{fmtTime(w.lower)}</tspan>
-              {w.upper !== null && (
-                <>
-                  <tspan className="num">–{fmtTime(w.upper)}</tspan>
-                  <tspan fill="var(--color-ink-muted)"> from the last {w.sample} trains</tspan>
-                </>
-              )}
-              {w.upper === null && <tspan fill="var(--color-ink-muted)"> if it does not catch up</tspan>}
+              {windowWords(w.lower, w.upper, w.sample)}
             </text>
           </g>
         )
@@ -447,7 +432,7 @@ export function Spine(props: Props) {
           >
             <title>
               {m.ct.train.line} {m.ct.train.number} to {m.ct.train.destination}
-              {m.ct.state.kind === 'measured' ? `, ${signed(m.ct.state.delay)} at ${m.ct.state.at}` : `, ${m.ct.state.kind === 'starts-here' ? 'starts here' : 'not departed yet'}`}
+              {m.ct.state.kind === 'measured' ? `, ${signed(m.ct.state.delay)} at ${m.ct.state.at}` : `, ${m.ct.state.kind === 'starts-here' ? STATE_WORDS.startsHere : STATE_WORDS.notDeparted}`}
             </title>
             <circle r={14} fill="transparent" />
             {m.hollow ? (
