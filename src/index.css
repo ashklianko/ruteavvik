@@ -208,6 +208,14 @@ body {
 }
 .row > :nth-child(1) {
   grid-area: time;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.row-timetable {
+  font-size: 0.6875rem;
+  color: var(--color-ink-faint);
+  text-decoration: line-through;
 }
 .row > :nth-child(2) {
   grid-area: line;

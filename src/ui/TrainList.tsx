@@ -48,7 +48,16 @@ function Row({ ct, from, to, windowFor, selected, hovered, onSelect, onHover }: 
         onFocus={() => onHover(id)}
         onBlur={() => onHover(null)}
       >
-        <span className="num text-ink-muted">{call?.aimedDeparture ? fmtTime(call.aimedDeparture) : '—'}</span>
+        <span className="num text-ink-muted">
+          {call?.aimedDeparture ? (
+            <>
+              {fmtTime(ct.state.kind === 'measured' ? call.aimedDeparture + ct.state.delay * 1000 : call.aimedDeparture)}
+              {ct.state.kind === 'measured' && Math.abs(ct.state.delay) > 60 && <span className="row-timetable">{fmtTime(call.aimedDeparture)}</span>}
+            </>
+          ) : (
+            '—'
+          )}
+        </span>
         <span className="line" style={{ color: lineColour(ct.train.line) }}>
           {ct.train.line}
         </span>

@@ -262,8 +262,10 @@ Beside or beneath the diagram. One row per train, ordered by measured arrival at
 unmeasured ones by timetable. Unmeasured trains are shown only when due within 30 minutes;
 the rest are summed up in one line, *8 more trains by timetable until 15:01, not running yet*.
 
-Each row: timetable departure · line · train number · `origin – destination` · departure
-platform at `from` as a small tag; below, the state in words: *4 min late, growing, at Lier,
+Each row: the departure from `from` as it will actually happen, timetable plus measured
+delay, with the timetable time struck through beneath it when they differ by more than a
+minute · line · train number · `origin – destination` · departure platform at `from` as a
+small tag; below, the state in words: *4 min late, growing, at Lier,
 2 stops away* with the four trail readings in mono, *on time, standing, at your platform*,
 *originates here*, *not departed*, *cancelled* struck through. Unmeasured rows are quieter.
 Trains ahead of you sit under a divider *already past {from}*.
