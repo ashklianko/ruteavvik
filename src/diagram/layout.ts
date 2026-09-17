@@ -3,9 +3,13 @@ import { indexOf } from '../data/derive.ts'
 import { displacement, type AxisMax } from '../data/displacement.ts'
 import type { Train } from '../data/model.ts'
 
-export const W = 640
-export const SPINE_X = 150
-export const HALF = 460
+export interface CrossGeom {
+  W: number
+  SPINE_X: number
+  HALF: number
+}
+export const NORMAL_GEOM: CrossGeom = { W: 640, SPINE_X: 150, HALF: 460 }
+export const COMPACT_GEOM: CrossGeom = { W: 400, SPINE_X: 118, HALF: 266 }
 export const ROW_H = 44
 export const ROW_MINOR = 24
 export const PAD = 26
@@ -36,9 +40,11 @@ export interface LayoutInput {
   from: string
   list: CorridorTrain[]
   minor: Set<string>
+  rowH?: number
+  rowMinor?: number
 }
 
-export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list, minor }: LayoutInput): Layout {
+export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list, minor, rowH = ROW_H, rowMinor = ROW_MINOR }: LayoutInput): Layout {
   const shown = new Set(upstreamRows)
   const lastShownIdx = upstreamRows.length ? upstreamOrder.indexOf(upstreamRows[upstreamRows.length - 1]) : -1
   const anyNotDeparted = list.some((c) => c.state.kind === 'not-departed')
@@ -58,12 +64,12 @@ export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list,
 
   const rows: Row[] = []
   let y = PAD
-  const baseHeight = (minorRow: boolean) => (minorRow ? ROW_MINOR : ROW_H)
+  const baseHeight = (minorRow: boolean) => (minorRow ? rowMinor : rowH)
   const upstreamWidth = upstreamRows.reduce((sum, st) => sum + baseHeight(minor.has(st)), 0)
   const corridorWidth = corridor.slice(1).reduce((sum, st) => sum + baseHeight(minor.has(st)), 0)
   const stretch = corridorWidth > 0 ? Math.min(2, Math.max(1, upstreamWidth / corridorWidth)) : 1
   const heightOf = (r: Row) =>
-    r.kind === 'corridor' ? baseHeight(r.minor) * stretch : r.kind === 'horizon' ? (ROW_H * (1 + stretch)) / 2 : r.kind === 'further' ? ROW_H * furtherSpan : baseHeight(r.minor)
+    r.kind === 'corridor' ? baseHeight(r.minor) * stretch : r.kind === 'horizon' ? (rowH * (1 + stretch)) / 2 : r.kind === 'further' ? rowH * furtherSpan : baseHeight(r.minor)
   const push = (r: Row) => {
     const prev = rows[rows.length - 1]
     if (prev) y += (heightOf(prev) + heightOf(r)) / 2
@@ -98,7 +104,7 @@ export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list,
     if (yFurther === null || farStations.length <= 1) return topY
     const rank = farStations.indexOf(station)
     if (rank < 0) return topY
-    const span = ROW_H * furtherSpan - 16
+    const span = rowH * furtherSpan - 16
     return yFurther + span / 2 - ((rank + 0.5) / farStations.length) * span
   }
   const yOfUpstream = (station: string): number => {
@@ -136,8 +142,8 @@ export function buildLayout({ corridor, upstreamOrder, upstreamRows, from, list,
   }
 }
 
-export function xOf(delaySeconds: number, max: AxisMax = 15): number {
-  return SPINE_X + displacement(delaySeconds, HALF, max)
+export function xOf(delaySeconds: number, max: AxisMax = 15, g: CrossGeom = NORMAL_GEOM): number {
+  return g.SPINE_X + displacement(delaySeconds, g.HALF, max)
 }
 
 export function yOfCall(layout: Layout, train: Train, callIndex: number, from: string): number {

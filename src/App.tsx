@@ -40,11 +40,15 @@ function useView(): View {
 
 const WIDE_MIN = 900
 
+type OrientationChoice = { orientation: Orientation; wideScreen: boolean }
+
 function useOrientation(): [Orientation, () => void, boolean] {
-  const [chosen, setChosen] = useState<Orientation | null>(() => {
+  const [chosen, setChosen] = useState<OrientationChoice | null>(() => {
     try {
-      const v = localStorage.getItem('ruteavvik.orientation')
-      return v === 'wide' || v === 'tall' ? v : null
+      const raw = localStorage.getItem('ruteavvik.orientation')
+      if (!raw) return null
+      const v = JSON.parse(raw) as Partial<OrientationChoice>
+      return (v.orientation === 'wide' || v.orientation === 'tall') && typeof v.wideScreen === 'boolean' ? { orientation: v.orientation, wideScreen: v.wideScreen } : null
     } catch {
       return null
     }
@@ -56,17 +60,40 @@ function useOrientation(): [Orientation, () => void, boolean] {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [])
-  const orientation: Orientation = chosen ?? (wideScreen ? 'wide' : 'tall')
+  const applies = chosen !== null && chosen.wideScreen === wideScreen
+  const orientation: Orientation = applies ? chosen.orientation : wideScreen ? 'wide' : 'tall'
   const toggle = () => {
-    const next: Orientation = orientation === 'wide' ? 'tall' : 'wide'
+    const next: OrientationChoice = { orientation: orientation === 'wide' ? 'tall' : 'wide', wideScreen }
     setChosen(next)
     try {
-      localStorage.setItem('ruteavvik.orientation', next)
+      localStorage.setItem('ruteavvik.orientation', JSON.stringify(next))
     } catch {
       /* storage unavailable */
     }
   }
-  return [orientation, toggle, chosen !== null]
+  return [orientation, toggle, applies]
+}
+
+function useMinWidth(px: number): boolean {
+  const [ok, setOk] = useState(() => window.innerWidth >= px)
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${px}px)`)
+    const onChange = () => setOk(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [px])
+  return ok
+}
+
+function useCompact(): boolean {
+  const [compact, setCompact] = useState(() => window.innerWidth < WIDE_MIN)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${WIDE_MIN - 1}px)`)
+    const onChange = () => setCompact(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return compact
 }
 
 export function App() {
@@ -77,6 +104,8 @@ export function App() {
 
 function Corridor({ view }: { view: View }) {
   const [orientation, toggleOrientation] = useOrientation()
+  const compact = useCompact()
+  const sideBySide = useMinWidth(1100)
   const [pair, setPair] = usePair()
   const stations = useStations()
   const snapshot = snapshotParam()
@@ -177,7 +206,7 @@ function Corridor({ view }: { view: View }) {
   })()
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-5 px-4 py-6 sm:px-8">
+    <main className="mx-auto flex min-h-dvh max-w-[1600px] flex-col gap-5 px-4 py-6 sm:px-8">
       <header className="flex justify-center">
         <a href={window.location.search} className="brand" aria-label="Ruteavvik, home">
           <Emblem />
@@ -248,7 +277,8 @@ function Corridor({ view }: { view: View }) {
           <p className="text-sm text-ink-faint">Pick a pair to see the map.</p>
         )
       ) : view === 'now' && orientation === 'wide' ? (
-        <>
+        <div className="grid flex-1 gap-8 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)]">
+          <div className="min-w-0">
           <SpineH
             from={fromName}
             to={toName}
@@ -261,15 +291,18 @@ function Corridor({ view }: { view: View }) {
             now={now}
             minor={minorStations}
             axisMax={axisMax}
+            narrow={sideBySide}
             selected={selected}
             hovered={hovered}
             onSelect={selectAndReveal}
             onHover={setHovered}
           />
-          <div className="max-w-2xl">
-            <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+          {hint && fromName && toName && list.length > 0 && (
+            <p className="mt-1 text-sm text-ink-muted">On the line means on time. Higher means later, by the minutes on the scale. Tap a train to follow it.</p>
+          )}
           </div>
-        </>
+          <TrainList list={list} from={fromName} to={toName} later={visible} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+        </div>
       ) : view === 'timeline' ? (
         <>
           <div className="grid gap-8 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -302,6 +335,7 @@ function Corridor({ view }: { view: View }) {
                           </p>
                         )}
             </div>
+            {!compact && (
             <div className="min-w-0">
               <Spine
                           from={fromName}
@@ -315,6 +349,7 @@ function Corridor({ view }: { view: View }) {
                           observations={observations}
                           minor={minorStations}
                           axisMax={axisMax}
+                          compact={compact}
                           now={now}
                           selected={selected}
                           hovered={hovered}
@@ -326,6 +361,7 @@ function Corridor({ view }: { view: View }) {
                           ariaLabel={ariaLabel}
                         />
             </div>
+            )}
           </div>
           <p className="mt-2 text-sm text-ink-faint">
                       {corridor.dataUpdatedAt ? (
@@ -375,6 +411,7 @@ function Corridor({ view }: { view: View }) {
                         observations={observations}
                         minor={minorStations}
                         axisMax={axisMax}
+                        compact={compact}
                         now={now}
                         selected={selected}
                         hovered={hovered}

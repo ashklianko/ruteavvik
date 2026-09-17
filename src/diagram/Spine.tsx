@@ -5,7 +5,7 @@ import { arrivalWindow, delayAt, segmentKey, WINDOW_MS } from '../data/derive.ts
 import { isPinned, ticksFor, type AxisMax } from '../data/displacement.ts'
 import type { Train } from '../data/model.ts'
 import { delayWords, fmtTime, signed } from '../format.ts'
-import { buildLayout, isFar, HALF, ROW_H, SPINE_X, W, xOf, yOfCall, type Layout } from './layout.ts'
+import { buildLayout, COMPACT_GEOM, isFar, NORMAL_GEOM, ROW_H, xOf, yOfCall, type CrossGeom, type Layout } from './layout.ts'
 import { BAND_COLOUR, BAND_LABEL, delayColour } from './palette.ts'
 
 interface Props {
@@ -20,6 +20,7 @@ interface Props {
   observations: SegmentObservation[]
   minor: Set<string>
   axisMax: AxisMax
+  compact?: boolean
   now: number
   selected: string | null
   hovered: string | null
@@ -75,10 +76,10 @@ function ghostOf(train: Train, index: number, layout: Layout, from: string, x: n
   return { x, y: y0 + (y1 - y0) * progress, due: progress >= 1 }
 }
 
-function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: number, max: AxisMax): Mark[] {
+function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: number, max: AxisMax, g: CrossGeom): Mark[] {
   const marks: Mark[] = []
   const notDepartedCount = list.filter((c) => c.state.kind === 'not-departed').length
-  const spacing = Math.min(56, (W - SPINE_X - 40) / Math.max(1, notDepartedCount))
+  const spacing = Math.min(56, (g.W - g.SPINE_X - 40) / Math.max(1, notDepartedCount))
   let notDeparted = 0
   for (const ct of list) {
     const { train, state } = ct
@@ -86,7 +87,7 @@ function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: numbe
       const fromCall = train.calls.find((c) => c.station === from)
       marks.push({
         ct,
-        x: SPINE_X + 18 + notDeparted++ * spacing,
+        x: g.SPINE_X + 18 + notDeparted++ * spacing,
         y: layout.yNotDeparted ?? layout.horizonY,
         hollow: true,
         label: fromCall?.aimedDeparture ? fmtTime(fromCall.aimedDeparture) : train.number,
@@ -105,17 +106,17 @@ function marksOf(list: CorridorTrain[], layout: Layout, from: string, now: numbe
         startsHere.length === 1
           ? 'starts here'
           : `start here, next ${fmtTime(train.calls.find((c) => c.station === from)?.aimedDeparture ?? 0)}`
-      marks.push({ ct, x: SPINE_X, y: layout.horizonY, hollow: true, label, sub, trail: [], pinned: false, ghost: null })
+      marks.push({ ct, x: g.SPINE_X, y: layout.horizonY, hollow: true, label, sub, trail: [], pinned: false, ghost: null })
       continue
     }
     const y = yOfCall(layout, train, state.index, from)
-    const x = xOf(state.delay, max)
+    const x = xOf(state.delay, max, g)
     const trail: Array<[number, number]> = []
     for (let i = state.index, n = 0; i >= 0 && n < 4; i--) {
       const d = delayAt(train.calls[i])
       if (d === null) continue
       if (i !== state.index && isFar(layout, train, i, from)) break
-      trail.unshift([xOf(d, max), yOfCall(layout, train, i, from)])
+      trail.unshift([xOf(d, max, g), yOfCall(layout, train, i, from)])
       n++
     }
     marks.push({
@@ -164,16 +165,17 @@ function labelSlots(marks: Mark[]): Map<string, { dx: number; dy: number }> {
 }
 
 export function Spine(props: Props) {
-  const { from, to, corridor, upstreamOrder, upstreamRows, list, trains, segments, observations, minor, axisMax, now, selected, hovered, onSelect, onHover, ariaLabel } = props
+  const { from, to, corridor, upstreamOrder, upstreamRows, list, trains, segments, observations, minor, axisMax, compact = false, now, selected, hovered, onSelect, onHover, ariaLabel } = props
+  const g = compact ? COMPACT_GEOM : NORMAL_GEOM
   const empty = !from || !to
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
   const [openCluster, setOpenCluster] = useState<string | null>(null)
 
   const layout = useMemo(
-    () => buildLayout({ corridor: corridor.length ? corridor : [from ?? ''], upstreamOrder, upstreamRows, from: from ?? '', list, minor }),
-    [corridor, upstreamOrder, upstreamRows, list, from, minor],
+    () => buildLayout({ corridor: corridor.length ? corridor : [from ?? ''], upstreamOrder, upstreamRows, from: from ?? '', list, minor, rowH: compact ? 34 : undefined, rowMinor: compact ? 20 : undefined }),
+    [corridor, upstreamOrder, upstreamRows, list, from, minor, compact],
   )
-  const allMarks = useMemo(() => marksOf(list, layout, from ?? '', now, axisMax), [list, layout, from, now, axisMax])
+  const allMarks = useMemo(() => marksOf(list, layout, from ?? '', now, axisMax, g), [list, layout, from, now, axisMax, g])
   const clusters = useMemo(() => {
     const groups = new Map<string, Mark[]>()
     for (const m of allMarks) {
@@ -198,9 +200,9 @@ export function Spine(props: Props) {
   const slots = useMemo(() => labelSlots(marks), [marks])
   const labelX = useMemo(() => {
     const minX = new Map<number, number>()
-    for (const m of marks) if (m.x < SPINE_X - 6) minX.set(Math.round(m.y), Math.min(minX.get(Math.round(m.y)) ?? Infinity, m.x))
-    return (y: number) => Math.min(SPINE_X - 14, (minX.get(Math.round(y)) ?? Infinity) - 12)
-  }, [marks])
+    for (const m of marks) if (m.x < g.SPINE_X - 6) minX.set(Math.round(m.y), Math.min(minX.get(Math.round(m.y)) ?? Infinity, m.x))
+    return (y: number) => Math.min(g.SPINE_X - 14, (minX.get(Math.round(y)) ?? Infinity) - 12)
+  }, [marks, g])
 
   const focusId = hovered ?? selected
   const segmentTrains = useMemo(() => {
@@ -225,7 +227,7 @@ export function Spine(props: Props) {
 
   return (
     <svg
-      viewBox={`0 0 ${W} ${layout.height}`}
+      viewBox={`0 0 ${g.W} ${layout.height}`}
       role="img"
       aria-label={ariaLabel}
       className="spine block h-auto w-full max-w-full select-none"
@@ -240,7 +242,7 @@ export function Spine(props: Props) {
         </filter>
       </defs>
 
-      <line x1={SPINE_X} y1={layout.rows[0]?.y ?? 0} x2={SPINE_X} y2={layout.horizonY} stroke="var(--color-spine)" strokeWidth={3} />
+      <line x1={g.SPINE_X} y1={layout.rows[0]?.y ?? 0} x2={g.SPINE_X} y2={layout.horizonY} stroke="var(--color-spine)" strokeWidth={3} />
 
       {layout.rows.map((row, i) => {
         if (row.kind !== 'corridor') return null
@@ -257,11 +259,11 @@ export function Spine(props: Props) {
             : `${a} to ${row.station}, ${BAND_LABEL.few} (${stat?.n ?? 0} measured)`
         return (
           <g key={`seg-${row.station}`} className="segment">
-            {hot && <line x1={SPINE_X} y1={prev.y} x2={SPINE_X} y2={row.y} stroke={BAND_COLOUR[band]} strokeWidth={active ? 14 : 10} strokeOpacity={active ? 0.7 : 0.45} strokeLinecap="round" filter="url(#glow)" />}
+            {hot && <line x1={g.SPINE_X} y1={prev.y} x2={g.SPINE_X} y2={row.y} stroke={BAND_COLOUR[band]} strokeWidth={active ? 14 : 10} strokeOpacity={active ? 0.7 : 0.45} strokeLinecap="round" filter="url(#glow)" />}
             <line
-              x1={SPINE_X}
+              x1={g.SPINE_X}
               y1={prev.y}
-              x2={SPINE_X}
+              x2={g.SPINE_X}
               y2={row.y}
               stroke={BAND_COLOUR[band]}
               strokeWidth={band === 'few' ? 2 : band === 'steady' ? 3 : band === 'plus0' ? 4 : 5}
@@ -269,9 +271,9 @@ export function Spine(props: Props) {
               strokeLinecap="round"
             />
             <line
-              x1={SPINE_X}
+              x1={g.SPINE_X}
               y1={prev.y + 4}
-              x2={SPINE_X}
+              x2={g.SPINE_X}
               y2={row.y - 4}
               stroke="transparent"
               strokeWidth={18}
@@ -285,7 +287,7 @@ export function Spine(props: Props) {
               <title>{title}</title>
             </line>
             {active && stat && (
-              <text x={SPINE_X + 14} y={(prev.y + row.y) / 2 + 4} fontSize={12} fill="var(--color-ink)" style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
+              <text x={g.SPINE_X + 14} y={(prev.y + row.y) / 2 + 4} fontSize={12} fill="var(--color-ink)" style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}>
                 <tspan className="num">{stat.n >= 4 ? signed(stat.added) : `${stat.n}`}</tspan>
                 <tspan fill="var(--color-ink-muted)"> {stat.n >= 4 ? `added here, ${stat.n} trains` : 'trains, too few to say'}</tspan>
               </text>
@@ -301,7 +303,7 @@ export function Spine(props: Props) {
           const isStation = row.kind === 'corridor' || row.kind === 'upstream'
           return (
             <g key={`row-${row.kind}-${'station' in row ? row.station : ''}`}>
-              <line x1={SPINE_X - (row.minor ? 3 : 6)} y1={row.y} x2={SPINE_X + (row.minor ? 3 : 6)} y2={row.y} stroke="var(--color-spine)" strokeWidth={1} />
+              <line x1={g.SPINE_X - (row.minor ? 3 : 6)} y1={row.y} x2={g.SPINE_X + (row.minor ? 3 : 6)} y2={row.y} stroke="var(--color-spine)" strokeWidth={1} />
               <text x={labelX(row.y)} y={row.y + (row.minor ? 3.5 : 4)} textAnchor="end" fontSize={row.minor ? 11 : 13} fill={isStation && !row.minor ? 'var(--color-ink-muted)' : 'var(--color-ink-faint)'}>
                 {label}
               </text>
@@ -310,26 +312,17 @@ export function Spine(props: Props) {
         })}
 
       <g>
-        <line x1={SPINE_X - 30} y1={layout.horizonY} x2={W} y2={layout.horizonY} stroke="var(--color-ink-muted)" strokeWidth={1} />
+        <line x1={g.SPINE_X - 30} y1={layout.horizonY} x2={g.W} y2={layout.horizonY} stroke="var(--color-ink-muted)" strokeWidth={1} />
         <text x={labelX(layout.horizonY)} y={layout.horizonY - 2} textAnchor="end" fontSize={14} fontWeight={500} fill="var(--color-ink)" style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 5 }}>
           {from ?? ''}
         </text>
         <text x={labelX(layout.horizonY)} y={layout.horizonY + 11} textAnchor="end" fontSize={10} fill="var(--color-ink-faint)">
           you are here
         </text>
-        {!empty && layout.rows[0] && (
-          <text x={W - 8} y={layout.rows[0].y - 14} textAnchor="end" fontSize={11} fill="var(--color-ink-faint)">
-            trains coming towards you
-          </text>
-        )}
-        {!empty && to && layout.yOfStation(to) !== undefined && (
-          <text x={W - 8} y={layout.horizonY + 30} textAnchor="end" fontSize={11} fill="var(--color-ink-faint)">
-            already left, on the way to {to}
-          </text>
-        )}
+
         {ticksFor(axisMax).map((m) => {
           const label = m === 0 ? '0' : `+${m}`
-          const x = xOf(m * 60, axisMax)
+          const x = xOf(m * 60, axisMax, g)
           return (
             <g key={m}>
               <line x1={x} y1={layout.horizonY - 4} x2={x} y2={layout.horizonY + 4} stroke="var(--color-ink-faint)" />
@@ -339,7 +332,7 @@ export function Spine(props: Props) {
             </g>
           )
         })}
-        <text x={SPINE_X + HALF} y={layout.horizonY - 8} textAnchor="end" fontSize={12} fill="var(--color-ink-muted)">
+        <text x={g.SPINE_X + g.HALF} y={layout.horizonY - 8} textAnchor="end" fontSize={12} fill="var(--color-ink-muted)">
           minutes late →
         </text>
       </g>
@@ -379,8 +372,8 @@ export function Spine(props: Props) {
         if (yTo === undefined) return null
         const { w } = focusWindow
         const d = focusWindow.ct.state.kind === 'measured' ? focusWindow.ct.state.delay : 0
-        const x0 = xOf(d, axisMax)
-        const x1 = w.upper !== null ? xOf(d + (w.upper - w.lower) / 1000, axisMax) : x0
+        const x0 = xOf(d, axisMax, g)
+        const x1 = w.upper !== null ? xOf(d + (w.upper - w.lower) / 1000, axisMax, g) : x0
         return (
           <g className="window">
             <line x1={x0} y1={yTo - 9} x2={x0} y2={yTo + 9} stroke="var(--color-ink)" strokeWidth={1.2} />
@@ -391,9 +384,9 @@ export function Spine(props: Props) {
               </>
             )}
             <text
-              x={Math.max(x1, x0) > W - 230 ? Math.min(x0, x1) - 10 : Math.max(x1, x0) + 10}
+              x={Math.max(x1, x0) > g.W - 230 ? Math.min(x0, x1) - 10 : Math.max(x1, x0) + 10}
               y={yTo + 4}
-              textAnchor={Math.max(x1, x0) > W - 230 ? 'end' : 'start'}
+              textAnchor={Math.max(x1, x0) > g.W - 230 ? 'end' : 'start'}
               fontSize={12}
               fill="var(--color-ink)"
               style={{ paintOrder: 'stroke', stroke: 'var(--color-ground)', strokeWidth: 3 }}
@@ -492,7 +485,7 @@ export function Spine(props: Props) {
       })}
 
       {!empty && list.length === 0 && (
-        <text x={SPINE_X + 20} y={layout.horizonY - ROW_H * 2} fontSize={14} fill="var(--color-ink-faint)">
+        <text x={g.SPINE_X + 20} y={layout.horizonY - ROW_H * 2} fontSize={14} fill="var(--color-ink-faint)">
           Nothing running on this pair right now.
         </text>
       )}

@@ -18,23 +18,21 @@ interface Props {
   now: number
   minor: Set<string>
   axisMax: AxisMax
+  narrow?: boolean
   selected: string | null
   hovered: string | null
   onSelect: (id: string | null) => void
   onHover: (id: string | null) => void
 }
 
-export const HW = 1000
-const HH = 430
-const LEFT = 104
-const RIGHT = 30
-const BASE = 330
-const HALFY = 280
+const FULL = { HW: 1000, HH: 430, LEFT: 104, RIGHT: 30, BASE: 330, HALFY: 280 }
+const NARROW = { HW: 1000, HH: 560, LEFT: 104, RIGHT: 30, BASE: 450, HALFY: 400 }
 
 
-export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, minor, axisMax, selected, hovered, onSelect, onHover }: Props) {
+export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, minor, axisMax, narrow = false, selected, hovered, onSelect, onHover }: Props) {
+  const { HW, HH, LEFT, RIGHT, BASE, HALFY } = narrow ? NARROW : FULL
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
-  const yOfDelay = useCallback((s: number) => BASE - displacement(s, HALFY, axisMax), [axisMax])
+  const yOfDelay = useCallback((s: number) => BASE - displacement(s, HALFY, axisMax), [axisMax, BASE, HALFY])
   const empty = !from || !to
   const layout: Layout = useMemo(
     () => buildLayout({ corridor: corridor.length ? corridor : [from ?? ''], upstreamOrder, upstreamRows, from: from ?? '', list, minor }),
@@ -44,7 +42,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
     const span = Math.max(1, layout.height - 2 * PAD - 8)
     const k = (HW - LEFT - RIGHT) / span
     return (y: number) => LEFT + (y - PAD) * k
-  }, [layout])
+  }, [layout, HW, LEFT, RIGHT])
   const focusId = hovered ?? selected
   const segmentTrains = useMemo(() => {
     if (!hoverSegment) return null
@@ -90,7 +88,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
         },
       ]
     })
-  }, [list, layout, from, xOfY, yOfDelay, axisMax])
+  }, [list, layout, from, xOfY, yOfDelay, axisMax, BASE, LEFT])
 
   const labelDy = useMemo(() => {
     const placed: Array<{ x: number; y: number; w: number; h: number }> = marks.map((m) => ({ x: m.x - 8, y: m.y - 8, w: 16, h: 16 }))
@@ -186,6 +184,7 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
             <g key={`col-${row.kind}-${'station' in row ? row.station : ''}`}>
               <line x1={x} y1={BASE - (isMinor ? 3 : 6)} x2={x} y2={BASE + (isMinor ? 3 : 6)} stroke="var(--color-spine)" strokeWidth={1} />
               {isHorizon && <line x1={x} y1={yOfDelay(axisMax * 60) - 8} x2={x} y2={BASE + 6} stroke="var(--color-ink-muted)" strokeWidth={1} />}
+              {(
               <text
                 transform={`translate(${x + 4} ${BASE + 18}) rotate(-45)`}
                 textAnchor="end"
@@ -195,18 +194,13 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
               >
                 {label}
               </text>
+              )}
             </g>
           )
         })}
 
       {!empty && (
         <>
-          <text x={xOfY(layout.horizonY) - 8} y={yOfDelay(axisMax * 60) - 14} textAnchor="end" fontSize={11} fill="var(--color-ink-faint)">
-            coming towards you
-          </text>
-          <text x={xOfY(layout.horizonY) + 8} y={yOfDelay(axisMax * 60) - 14} fontSize={11} fill="var(--color-ink-faint)">
-            already left, towards {to}
-          </text>
           <text x={xOfY(layout.horizonY)} y={yOfDelay(axisMax * 60) - 28} textAnchor="middle" fontSize={11} fill="var(--color-ink-muted)">
             you are here
           </text>

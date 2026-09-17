@@ -120,18 +120,24 @@ An SVG redrawn on every poll with transitions on position only, in one of two or
 that carry the same rows, marks and colours:
 
 - **Wide**, the default from 900 px: stations left to right, `from` a vertical rule labelled
-  *you are here*, delay upwards from the line of track. The diagram spans the page, the list
-  sits beneath.
+  *you are here*, delay upwards from the line of track. From 1100 px the list sits to the
+  right of the diagram in a fixed column and the diagram keeps the rest of the width, drawn
+  taller; below that the list sits beneath. The page grows to 1600 px for this.
 - **Tall**, the default below 900 px: stations top to bottom, `from` a horizontal horizon,
   delay to the right. Diagram and list side by side when there is room.
 
 The toggle beside the view links switches between them; the choice is remembered in
-`localStorage` under `ruteavvik.orientation` and wins over the width default. The rest of
+`localStorage` under `ruteavvik.orientation` together with the screen class it was made on,
+and wins over the width default only on that class: a wide choice on a desktop does not
+follow the user onto a phone. Below 900 px
+the diagrams switch to a **compact** geometry: narrower drawing, rows 34 and 20 units, the
+time chart with half-hour ticks and 26-unit rows, and the `Last hour` view drops the spine
+beside the chart. The next-departure block wraps onto three lines with the time set larger. The rest of
 this section reads in the tall orientation; the wide one is the same picture turned a quarter
 turn, with station names set at 45° under the track.
 
-Permanent orientation labels: *trains coming towards you* on the approach side, *already
-left, on the way to {to}* on the corridor side, *minutes late* with an arrow on the scale.
+Permanent orientation labels: *you are here* under the station name and *minutes late* with
+an arrow on the scale.
 
 ### Rows
 

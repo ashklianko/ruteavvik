@@ -487,13 +487,46 @@ body {
   }
 }
 @media (max-width: 899px) {
+  .selector {
+    min-height: 0;
+  }
+}
+@media (max-width: 899px) {
   .hero-line,
   .hero-button {
     flex-wrap: wrap;
   }
+  .hero-time {
+    font-size: 1.75rem;
+  }
   .hero-why,
   .hero-then {
     white-space: normal;
+  }
+  .hero-why {
+    flex-basis: 100%;
+  }
+  .hero-chevron {
+    display: none;
+  }
+  .headline,
+  .hero {
+    margin-top: 0.25rem;
+  }
+  .mood {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.5rem 0.1rem 0.4rem;
+  }
+  .row {
+    font-size: 0.875rem;
+    grid-template-columns: 3rem 2.4rem 2.6rem minmax(0, 1fr);
+    column-gap: 0.45rem;
+  }
+  .row .state {
+    font-size: 0.8125rem;
+  }
+  .view-toggle {
+    font-size: 0.8125rem;
   }
 }
 

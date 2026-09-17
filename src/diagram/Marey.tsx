@@ -17,14 +17,13 @@ interface Props {
   onHover: (id: string | null) => void
   scrub: number | null
   onScrub: (t: number | null) => void
+  compact?: boolean
   ariaLabel: string
 }
 
 export const MW = 640
-const LABEL_W = 124
 const PAD_TOP = 44
 const PAD_BOTTOM = 14
-const ROW = 36
 const PAST_MS = 100 * 60_000
 const FUTURE_MS = 30 * 60_000
 
@@ -38,12 +37,15 @@ interface Series {
   last: { x: number; y: number; delay: number } | null
 }
 
-export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect, onHover, scrub, onScrub, ariaLabel }: Props) {
+export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect, onHover, scrub, onScrub, compact = false, ariaLabel }: Props) {
+  const LABEL_W = compact ? 92 : 124
+  const ROW = compact ? 26 : 36
+  const TICK_MS = compact ? 30 * 60_000 : 15 * 60_000
   const height = PAD_TOP + (rows.length - 1) * ROW + PAD_BOTTOM
   const t0 = now - PAST_MS
   const t1 = now + FUTURE_MS
-  const x = useMemo(() => scaleLinear().domain([t0, t1]).range([LABEL_W, MW - 16]), [t0, t1])
-  const rowY = useMemo(() => new Map(rows.map((s, i) => [s, PAD_TOP + i * ROW])), [rows])
+  const x = useMemo(() => scaleLinear().domain([t0, t1]).range([LABEL_W, MW - 16]), [t0, t1, LABEL_W])
+  const rowY = useMemo(() => new Map(rows.map((s, i) => [s, PAD_TOP + i * ROW])), [rows, ROW])
 
   const series = useMemo<Series[]>(() => {
     const out: Series[] = []
@@ -80,12 +82,12 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
   }, [trains, to, rowY, x])
 
   const ticks = useMemo(() => {
-    const step = 15 * 60_000
+    const step = TICK_MS
     const first = Math.ceil(t0 / step) * step
     const list: number[] = []
     for (let t = first; t <= t1; t += step) list.push(t)
     return list
-  }, [t0, t1])
+  }, [t0, t1, TICK_MS])
 
   const focusId = hovered ?? selected
   const dimmed = focusId !== null
@@ -132,7 +134,7 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
         return (
           <g key={s}>
             <line x1={LABEL_W - 4} y1={y} x2={MW - 16} y2={y} stroke={isFrom ? 'var(--color-ink-muted)' : 'var(--color-spine-dim)'} strokeWidth={isFrom ? 1 : 0.5} />
-            <text x={LABEL_W - 12} y={y + 4} textAnchor="end" fontSize={isFrom ? 14 : 13} fontWeight={isFrom ? 500 : 400} fill={isFrom ? 'var(--color-ink)' : 'var(--color-ink-muted)'}>
+            <text x={LABEL_W - 12} y={y + 4} textAnchor="end" fontSize={compact ? (isFrom ? 12 : 11) : isFrom ? 14 : 13} fontWeight={isFrom ? 500 : 400} fill={isFrom ? 'var(--color-ink)' : 'var(--color-ink-muted)'}>
               {s}
             </text>
           </g>
