@@ -51,9 +51,31 @@ layout before it has its data; nothing reads as an empty line.
 
 Polling every 20 s while the page is visible; paused when hidden, refetched at once on
 return. A failed poll leaves the previous state on screen; the connection dot says what is
-happening. Time on screen is Europe/Oslo. A `?snapshot=<name>` query loads a recorded response
-from `public/snapshots/` instead of polling and freezes *now* at its recording time; the snapshot's pair is shown
-without being saved as the user's.
+happening. Time on screen is Europe/Oslo.
+
+**Snapshots and presentation.** A `?snapshot=<name>` query loads a recorded response from
+`public/snapshots/` instead of polling and freezes *now* at its recording time; the
+snapshot's pair is shown without being saved as the user's. Adding `&at=HH:MM`, Oslo time on
+the recording's date, sets *now* to that moment instead and forgets every recording after
+it, exactly as scrubbing the time chart does, so one file recorded at the end of a peak
+replays any minute of the ninety before it: the headline, the list, the diagram, the map and
+the time chart all speak as of that minute. Four canonical files ship with the page:
+`sandvika-morning` and `lillestrom-morning` (recorded 2026-09-17 08:07, covering 06:37–08:07),
+`sandvika-evening` and `lillestrom-evening` (2026-09-16 17:07, covering 15:37–17:07). Trains
+that passed `from` before the covered span are absent, and operator notices that had
+expired by the recording are gone. A name with no file behind it says so in the headline
+instead of leaving the page blank.
+
+A small **scene switcher** sits fixed in the bottom left corner, dimmed until hovered: a
+select with *Live now*, the four peak recordings each at its richest minute (Sandvika 07:47
+and Lillestrøm 07:57 in the morning, Sandvika 16:52 and Lillestrøm 16:57 in the evening)
+and two **synthetic** scenes built by `scripts/demo.ts` from the Sandvika morning timetable
+with every recorded time invented: *a calm morning*, everything within a minute, and
+*signal failure at Lysaker*, a hot Lysaker–Skøyen stretch, a train growing from Drammen, one
+catching up, one cancelled, one short, and an incident notice on the approaching trains.
+Choosing a scene reloads the page with the matching `snapshot` and `at` parameters and keeps
+the view hash. Synthetic files carry a `synthetic` sentence which the connection dot shows
+instead of *Recorded snapshot*, so invented data is never mistaken for a measurement.
 
 ## Data
 

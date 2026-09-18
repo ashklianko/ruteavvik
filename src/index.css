@@ -971,3 +971,55 @@ body {
   color: var(--color-ink);
   font-weight: 500;
 }
+
+.scenes {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-ground) 85%, transparent);
+  color: var(--color-ink-faint);
+  font-size: 0.75rem;
+  opacity: 0.6;
+  transition: opacity 200ms;
+  max-width: 12rem;
+}
+.scenes:hover,
+.scenes:focus-within {
+  opacity: 1;
+}
+.scenes-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-ink-faint);
+  flex: none;
+}
+.scenes-select {
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  max-width: 10rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+@media (max-width: 899px) {
+  .scenes {
+    max-width: 9rem;
+  }
+  .scenes-select {
+    max-width: 7rem;
+  }
+}
+.scenes-select option {
+  background: var(--color-ground-raised);
+  color: var(--color-ink);
+}

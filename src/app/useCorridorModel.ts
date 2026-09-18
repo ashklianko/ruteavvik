@@ -30,17 +30,19 @@ interface Input {
   lines: string[]
   wallClock: number
   scrub: number | null
+  at?: number | null
 }
 
-export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wallClock, scrub }: Input) {
+export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wallClock, scrub, at = null }: Input) {
   const fromName = snapshot ? (snap?.from ?? pairFrom) : pairFrom
   const toName = snapshot ? (snap?.to ?? pairTo) : pairTo
   const coarseClock = Math.floor(wallClock / 10_000) * 10_000
-  const liveNow = snapshot && snap ? Date.parse(snap.recordedAt) : coarseClock
+  const liveNow = snapshot && snap ? (at ?? Date.parse(snap.recordedAt)) : coarseClock
   const now = scrub ?? liveNow
   const ghostNow = snapshot && snap ? liveNow : scrub ?? wallClock
 
-  const liveTrains = useMemo(() => (snap ? trainsFromSnapshot(snap) : []), [snap])
+  const recorded = useMemo(() => (snap ? trainsFromSnapshot(snap) : []), [snap])
+  const liveTrains = useMemo(() => (snapshot && at !== null ? trainsAsOf(recorded, at) : recorded), [recorded, snapshot, at])
   const trains = useMemo(() => (scrub !== null ? trainsAsOf(liveTrains, scrub) : liveTrains), [liveTrains, scrub])
   const fullList = useMemo(() => (fromName && toName ? corridorTrains(trains, fromName, toName) : []), [trains, fromName, toName])
   const available = useMemo(() => [...new Set(fullList.map((c) => c.train.line))].sort(), [fullList])

@@ -122,6 +122,7 @@ service-date trap, the empty-stock arrival trap.
 2. Keyboard and screen-reader pass, deferred by the owner.
 3. ~~Wide orientation parity~~ clusters and ghost ported 2026-09-17; the inline
    segment readout stays tall-only by choice; the arrival bracket was dropped from both.
-4. Pick two or three peak recordings from `recordings/` into `public/snapshots/` as the
-   canonical test data and point the tests at them.
+4. ~~Pick peak recordings into `public/snapshots/`~~ four canonical files (Sandvika and
+   Lillestrøm, morning and evening peak) added 2026-09-18 with `?at=HH:MM` replay for
+   presentations; the unit tests still read the two midday files.
 5. Light theme via `prefers-color-scheme` if the dark one fails on a sunny platform.

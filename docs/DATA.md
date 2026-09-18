@@ -178,3 +178,17 @@ the Oslo tunnel. The figure is stable across samples, which suggests the method 
 rather than noisy.
 
 A run over 170 journeys produced 225 segments, of which 24 cleared the n ≥ 4 threshold.
+
+## Snapshots that ship with the page
+
+`public/snapshots/` holds the two midday files the unit tests read, four peak recordings
+(`sandvika-morning`, `lillestrom-morning` from 2026-09-17 08:07; `sandvika-evening`,
+`lillestrom-evening` from 2026-09-16 17:07) and two synthetic scenes. The peak files were
+recorded by a `scripts/snapshot.ts` process started before the journey queries asked for
+`journeyPattern { id }` and situations, so `scripts/backfill-patterns.ts` added the pattern
+ids afterwards from Entur (the service journey ids are stable across days); they carry no
+operator notices. `scripts/demo.ts` derives `demo-calm` and `demo-rough` from the Sandvika
+morning file: timetable, stations, quays and journey ids are real, every actual time is
+replaced by a deterministic delay profile, `recordedAt` is set to 07:50, and the file gains a
+`synthetic` sentence that the UI shows in place of *Recorded snapshot*. Re-run the script
+after changing the profile; it is idempotent.

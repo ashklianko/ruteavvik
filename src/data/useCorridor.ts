@@ -14,6 +14,10 @@ export function snapshotParam(): string | null {
   return new URLSearchParams(window.location.search).get('snapshot')
 }
 
+export function atParam(): string | null {
+  return new URLSearchParams(window.location.search).get('at')
+}
+
 async function loadSnapshot(name: string): Promise<CorridorSnapshot> {
   const res = await fetch(`${import.meta.env.BASE_URL}snapshots/${name}.json`)
   if (!res.ok) throw new Error(`snapshot ${name} not found`)

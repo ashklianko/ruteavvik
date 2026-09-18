@@ -374,3 +374,19 @@ sample.
 Hover labels on tracked trains, in both orientations, the timeline and the map, dropped the
 destination at the same time (*R14, 4 min late, at Asker*); the destination stays in the
 tooltip and the list. Space over completeness at the point of hover.
+
+## 25 · Presentation scenes, synthetic data labelled as such
+
+A demo cannot wait for the morning peak. Two mechanisms: `?at=HH:MM` replays any minute of a
+recorded snapshot through the same `trainsAsOf` cut the time chart's scrubbing uses, and a
+scene switcher in the bottom left corner lists the peak recordings at their richest minute,
+found by measuring shown, measured and late trains and hot segments at five-minute steps.
+Real recordings from two days do not contain a cancellation or a signal failure, so two
+synthetic scenes are generated from a real timetable with invented times. The product's
+promise is *measured, not promised*; invented data cuts against it, so every synthetic file
+carries a sentence naming itself as synthetic, the connection dot shows that sentence, and
+the switcher labels those entries *Synthetic*. The switcher is dimmed and small: it is a
+presenter's control, not a commuter's.
+
+**Cost.** Two megabytes of JSON in the repository and on Pages, a generator script to keep
+in step with the raw types, and a control every visitor can see.

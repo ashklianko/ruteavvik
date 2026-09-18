@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { POLL_MS, snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
+import { atParam, POLL_MS, snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
+import { atClock } from './data/clock.ts'
+import { Scenes } from './ui/Scenes.tsx'
 import { Debug } from './debug/Debug.tsx'
 import { Marey } from './diagram/Marey.tsx'
 import { Spine } from './diagram/Spine.tsx'
@@ -135,7 +137,9 @@ function Corridor({ view }: { view: View }) {
   }, [])
 
   const snap = corridor.data
-  const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub })
+  const atStr = atParam()
+  const at = snapshot !== null && snap && atStr ? atClock(snap.recordedAt, atStr) : null
+  const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub, at })
   const { fromName, toName, liveNow, now, ghostNow, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, windowFor, headlineWindow, lateCount, ariaLabel } = m
   const patterns = usePatterns(view === 'map' ? relevant : [])
 
@@ -166,7 +170,7 @@ function Corridor({ view }: { view: View }) {
   const showHint = hint && fromName && toName && list.length > 0
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[1600px] flex-col gap-5 px-4 py-6 sm:px-8">
+    <main className="mx-auto flex min-h-dvh max-w-[1600px] flex-col gap-5 px-4 pt-6 pb-14 sm:px-8">
       <header className="flex justify-center">
         <a href={window.location.search} className="brand" aria-label="Ruteavvik, home">
           <Emblem />
@@ -177,8 +181,8 @@ function Corridor({ view }: { view: View }) {
       <div className="grid items-start gap-x-8 gap-y-4 min-[900px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Selector
           stations={stations.data ?? []}
-          from={pair.from}
-          to={pair.to}
+          from={snapshot ? fromName : pair.from}
+          to={snapshot ? toName : pair.to}
           lines={pair.lines}
           available={available}
           onChange={(next) => {
@@ -189,6 +193,10 @@ function Corridor({ view }: { view: View }) {
         />
         {loading ? (
           <HeadlineSkeleton />
+        ) : snapshot !== null && corridor.isError ? (
+          <p className="headline">
+            No recording named <span className="num">{snapshot}</span> on this server. Recordings live in <span className="num">public/snapshots/</span>.
+          </p>
         ) : (
         <Headline
           h={headline}
@@ -197,7 +205,7 @@ function Corridor({ view }: { view: View }) {
           following={following}
           mood={mood}
           lines={pair.lines}
-          now={wallClock}
+          now={snapshot ? liveNow : wallClock}
           selected={selectedTrain}
           window={selectedTrain ? windowFor(selectedTrain) : null}
           onHover={setHovered}
@@ -317,10 +325,12 @@ function Corridor({ view }: { view: View }) {
         fetching={corridor.isFetching}
         error={corridor.isError}
         snapshot={snapshot !== null}
+        synthetic={snap?.synthetic ?? null}
         pollMs={POLL_MS}
         now={wallClock}
         onRefresh={() => void corridor.refetch()}
       />
+      <Scenes snapshot={snapshot} />
     </main>
   )
 }
