@@ -22,6 +22,7 @@ interface Props {
   corridor: string[]
   upstreamRows: string[]
   minor: Set<string>
+  stops: Set<string> | null
   now: number
   ghostNow?: number
   selected: string | null
@@ -71,7 +72,7 @@ function place(ct: CorridorTrain, p: Pattern, now: number): Placed | null {
   return pos ? { ct, lonLat: pos, moving: progress < 1, due: progress >= 1 } : null
 }
 
-export default function RouteMap({ from, to, list, patterns, segments, corridor, upstreamRows, minor, now, ghostNow = now, selected, hovered, onSelect, onHover, windowFor }: Props) {
+export default function RouteMap({ from, to, list, patterns, segments, corridor, upstreamRows, minor, stops, now, ghostNow = now, selected, hovered, onSelect, onHover, windowFor }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markers = useRef(new Map<string, Marker>())
@@ -116,6 +117,8 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
           'circle-color': ['case', ['get', 'end'], '#e6edea', '#0b1417'],
           'circle-stroke-color': ['case', ['get', 'end'], '#0b1417', '#8fa3a3'],
           'circle-stroke-width': ['case', ['get', 'end'], 2.5, 1.2],
+          'circle-opacity': ['case', ['get', 'passed'], 0.3, 1],
+          'circle-stroke-opacity': ['case', ['get', 'passed'], 0.3, 1],
         },
       })
       map.addLayer({
@@ -125,7 +128,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
         minzoom: 9,
         filter: ['all', ['get', 'major'], ['!', ['get', 'end']]],
         layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'] },
-        paint: { 'text-color': '#a9baba', 'text-halo-color': '#0b1417', 'text-halo-width': 1.4 },
+        paint: { 'text-color': '#a9baba', 'text-halo-color': '#0b1417', 'text-halo-width': 1.4, 'text-opacity': ['case', ['get', 'passed'], 0.3, 1] },
       })
       map.addLayer({
         id: 'minor-labels',
@@ -134,7 +137,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
         minzoom: 11.5,
         filter: ['all', ['!', ['get', 'major']], ['!', ['get', 'end']]],
         layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-offset': [0, 1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'] },
-        paint: { 'text-color': '#7d9094', 'text-halo-color': '#0b1417', 'text-halo-width': 1.2 },
+        paint: { 'text-color': '#7d9094', 'text-halo-color': '#0b1417', 'text-halo-width': 1.2, 'text-opacity': ['case', ['get', 'passed'], 0.3, 1] },
       })
       map.addLayer({
         id: 'end-labels',
@@ -216,10 +219,10 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
       if (!lonLat) continue
       const end = name === from || name === to
       const major = !minor.has(name)
-      features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: lonLat }, properties: { name, major, here: name === from, end } })
+      features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: lonLat }, properties: { name, major, here: name === from, end, passed: stops !== null && !stops.has(name) } })
     }
     return features
-  }, [usedPatterns, upstreamRows, corridor, from, to, minor])
+  }, [usedPatterns, upstreamRows, corridor, from, to, minor, stops])
 
   const placed = useMemo(() => {
     const out: Placed[] = []
@@ -365,7 +368,7 @@ export default function RouteMap({ from, to, list, patterns, segments, corridor,
           </button>
           <p className="map-panel-title">
             <span className="line">{chosen.train.line}</span> <span className="num text-ink-muted">{chosen.train.number}</span> {chosen.train.calls[0]?.station} – {chosen.train.destination}
-            <NoticeTags notices={relevantNotices(chosen.train.notices, from, to)} />
+            <NoticeTags notices={relevantNotices(chosen.train, from, to)} />
           </p>
           <p className="map-panel-sub">
             {chosen.state.kind === 'measured'

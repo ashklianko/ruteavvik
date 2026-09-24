@@ -1,5 +1,6 @@
 import { mean } from 'd3-array'
 import type { Call, Train } from './model.ts'
+import { isDisruptive, relevantNotices } from './notices.ts'
 
 export const WINDOW_MS = 60 * 60_000
 export const MIN_PASSES = 4
@@ -431,6 +432,7 @@ export interface StationMood {
   median: number | null
   sample: number[]
   cancelled: number
+  notices: number
 }
 
 export const MOOD_LABEL: Record<Mood, string> = {
@@ -441,18 +443,24 @@ export const MOOD_LABEL: Record<Mood, string> = {
   unknown: 'too few trains to say',
 }
 
-export function hasIncident(train: Train): boolean {
-  return train.notices.some((n) => n.kind === 'cancelled' || n.kind === 'incident')
+export function hasIncident(train: Train, from: string, to: string): boolean {
+  return relevantNotices(train, from, to).some(isDisruptive)
 }
 
-export function stationMood(trains: Train[], station: string, now: number, window = WINDOW_MS, incidents = 0): StationMood {
+export const DISRUPTED_TRAINS = 2
+
+export function stationMood(trains: Train[], station: string, now: number, window = WINDOW_MS, noticed: ReadonlySet<string> = new Set()): StationMood {
   const since = now - window
   const departed: Array<{ at: number; delay: number }> = []
   let cancelled = 0
+  const affected = new Set(noticed)
   for (const t of trains) {
     const call = t.calls[indexOf(t, station)]
     if (!call) continue
-    if (call.cancelled && call.aimedDeparture !== null && call.aimedDeparture >= since && call.aimedDeparture <= now + 30 * 60_000) cancelled++
+    if (call.cancelled && call.aimedDeparture !== null && call.aimedDeparture >= since && call.aimedDeparture <= now + 30 * 60_000) {
+      cancelled++
+      affected.add(t.id)
+    }
     if (call.actualDeparture === null || call.aimedDeparture === null) continue
     if (call.actualDeparture < since || call.actualDeparture > now) continue
     const d = delayAt(call)
@@ -460,10 +468,11 @@ export function stationMood(trains: Train[], station: string, now: number, windo
   }
   departed.sort((a, b) => b.at - a.at)
   const sample = departed.slice(0, 5).map((d) => d.delay)
-  const disrupted = cancelled > 0 || incidents > 0
-  if (sample.length < 3) return { mood: disrupted ? 'disrupted' : 'unknown', median: null, sample, cancelled: cancelled + incidents }
+  const widespread = affected.size >= DISRUPTED_TRAINS
+  const counts = { cancelled, notices: noticed.size }
+  if (sample.length < 3) return { mood: widespread ? 'disrupted' : 'unknown', median: null, sample, ...counts }
   const sorted = [...sample].sort((a, b) => a - b)
   const median = sorted[Math.floor(sorted.length / 2)]
-  const mood: Mood = disrupted || median > 480 ? 'disrupted' : median > 180 ? 'delays' : median > 60 ? 'small' : 'well'
-  return { mood, median, sample, cancelled: cancelled + incidents }
+  const mood: Mood = widespread || median > 480 ? 'disrupted' : median > 180 ? 'delays' : median > 60 ? 'small' : 'well'
+  return { mood, median, sample, ...counts }
 }

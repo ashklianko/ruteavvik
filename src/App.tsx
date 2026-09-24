@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { atParam, POLL_MS, snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
 import { atClock } from './data/clock.ts'
 import { Scenes } from './ui/Scenes.tsx'
@@ -140,7 +140,11 @@ function Corridor({ view }: { view: View }) {
   const atStr = atParam()
   const at = snapshot !== null && snap && atStr ? atClock(snap.recordedAt, atStr) : null
   const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub, at })
-  const { fromName, toName, liveNow, now, ghostNow, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, windowFor, headlineWindow, lateCount, ariaLabel } = m
+  const { fromName, toName, liveNow, now, ghostNow, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, skipped, windowFor, headlineWindow, lateCount, ariaLabel } = m
+  const stops = useMemo(() => {
+    const t = selected ? servingAll.find((x) => x.id === selected) : undefined
+    return t ? new Set(t.calls.filter((c) => !c.cancelled).map((c) => c.station)) : null
+  }, [servingAll, selected])
   const patterns = usePatterns(view === 'map' ? relevant : [])
 
   const diagramProps = {
@@ -153,6 +157,7 @@ function Corridor({ view }: { view: View }) {
     segments,
     observations,
     minor: minorStations,
+    stops,
     axisMax,
     now,
     ghostNow,
@@ -203,6 +208,7 @@ function Corridor({ view }: { view: View }) {
           from={fromName}
           to={toName}
           following={following}
+          skipped={skipped}
           mood={mood}
           lines={pair.lines}
           now={snapshot ? liveNow : wallClock}
@@ -246,6 +252,7 @@ function Corridor({ view }: { view: View }) {
               corridor={corridorRows}
               upstreamRows={upRows}
               minor={minorStations}
+              stops={stops}
               now={now}
               ghostNow={ghostNow}
               selected={selected}
@@ -278,6 +285,7 @@ function Corridor({ view }: { view: View }) {
                     from={fromName}
                     to={toName}
                     rows={mareyRows}
+                    stops={stops}
                     trains={servingAll}
                     now={liveNow}
                     selected={selected}

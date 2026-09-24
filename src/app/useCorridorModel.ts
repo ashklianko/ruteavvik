@@ -11,6 +11,7 @@ import {
   segmentObservations,
   servesCorridor,
   hasIncident,
+  indexOf,
   stationMood,
   trainsAsOf,
   upstreamOrder,
@@ -78,13 +79,21 @@ export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wall
   const headline = useMemo(() => headlineOf(list), [list])
   const axisMax = useMemo(() => pickAxisMax(list.flatMap((c) => (c.state.kind === 'measured' ? [c.state.delay] : []))), [list])
   const moodTrains = useMemo(() => (lines.length ? trains.filter((t) => lines.includes(t.line)) : trains), [trains, lines])
-  const incidentCount = useMemo(() => list.filter((c) => c.group === 'approaching' && hasIncident(c.train)).length, [list])
-  const mood = useMemo(() => (fromName && snap ? stationMood(moodTrains, fromName, now, undefined, incidentCount) : null), [moodTrains, fromName, now, snap, incidentCount])
+  const noticed = useMemo(
+    () => new Set(fromName && toName ? list.filter((c) => c.group === 'approaching' && hasIncident(c.train, fromName, toName)).map((c) => c.train.id) : []),
+    [list, fromName, toName],
+  )
+  const mood = useMemo(() => (fromName && snap ? stationMood(moodTrains, fromName, now, undefined, noticed) : null), [moodTrains, fromName, now, snap, noticed])
   const following = useMemo(() => {
     const approaching = list.filter((c) => c.group === 'approaching' && !c.cancelled)
     const next = 'train' in headline ? headline.train : approaching[0]
     return approaching.filter((c) => c !== next).slice(0, 2)
   }, [list, headline])
+  const skipped = useMemo(() => {
+    if (!fromName || !('train' in headline)) return []
+    const nextAt = headline.train.train.calls[indexOf(headline.train.train, fromName)]?.aimedDeparture ?? Infinity
+    return list.filter((c) => c.group === 'approaching' && c.cancelled && (c.train.calls[indexOf(c.train, fromName)]?.aimedDeparture ?? Infinity) < nextAt)
+  }, [list, headline, fromName])
   const windowFor = (ct: CorridorTrain) => (toName ? arrivalWindow(ct, toName, trains, now) : null)
   const headlineWindow = 'train' in headline ? windowFor(headline.train) : null
   const lateCount = useMemo(() => officiallyLateCount(trains, now), [trains, now])
@@ -117,6 +126,7 @@ export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wall
     axisMax,
     mood,
     following,
+    skipped,
     windowFor,
     headlineWindow,
     lateCount,

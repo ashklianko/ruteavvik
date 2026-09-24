@@ -15,6 +15,7 @@ import {
   pickUpstreamRows,
   segmentObservations,
   stateOf,
+  hasIncident,
   stationMood,
   trainsAsOf,
   upstreamOrder,
@@ -22,7 +23,7 @@ import {
   verdictOf,
   visibleTrains,
 } from './derive.ts'
-import { EXCLUDED_LINES, noticeKind, toNotices, toTrain, trainsFromSnapshot, type Call, type Train } from './model.ts'
+import { EXCLUDED_LINES, noticeKind, toNotices, toTrain, trainsFromSnapshot, type Call, type Notice, type Train } from './model.ts'
 import { inWords } from '../format.ts'
 import type { CorridorSnapshot } from './types.ts'
 
@@ -354,10 +355,35 @@ describe('stationMood', () => {
   it('ignores departures older than the window', () => {
     expect(stationMood([at(30, 5), at(40, 10), at(20, 75)], 'S', min(10)).mood).toBe('unknown')
   })
-  it('calls a cancellation at the station disrupted', () => {
+  it('leaves one troubled train beside the grade', () => {
     const c = at(0, -5)
     c.calls[1] = { ...c.calls[1], cancelled: true, actualDeparture: null }
-    expect(stationMood([c, at(30, 5), at(40, 10), at(20, 15)], 'S', min(10)).mood).toBe('disrupted')
+    expect(stationMood([c, at(30, 5), at(40, 10), at(20, 15)], 'S', min(10), undefined, new Set([c.id]))).toMatchObject({ mood: 'well', cancelled: 1, notices: 1 })
+    expect(stationMood([c], 'S', min(10))).toMatchObject({ mood: 'unknown', cancelled: 1 })
+  })
+  it('calls two troubled trains disrupted whatever the median', () => {
+    const c = at(0, -5)
+    c.calls[1] = { ...c.calls[1], cancelled: true, actualDeparture: null }
+    const fine = [at(30, 5), at(40, 10), at(20, 15)]
+    expect(stationMood([c, ...fine], 'S', min(10), undefined, new Set(['other'])).mood).toBe('disrupted')
+    expect(stationMood(fine, 'S', min(10), undefined, new Set(['x', 'y'])).mood).toBe('disrupted')
+    expect(stationMood([c], 'S', min(10), undefined, new Set(['other'])).mood).toBe('disrupted')
+  })
+})
+
+describe('hasIncident', () => {
+  const notice = (stations: string[], kind: Notice['kind'] = 'incident'): Notice => ({ id: stations.join(), kind, summary: '', description: '', advice: '', stations, until: null })
+  const withNotices = (...notices: Notice[]) => ({ ...train('n', []), notices })
+  it('counts notices that touch the stretch from boarding to alighting', () => {
+    expect(hasIncident(withNotices(notice(['B', 'C'])), 'B', 'D')).toBe(true)
+    expect(hasIncident(withNotices(notice(['D'])), 'B', 'D')).toBe(true)
+    expect(hasIncident(withNotices(notice([])), 'B', 'D')).toBe(true)
+  })
+  it('ignores notices elsewhere on the route and informational ones', () => {
+    expect(hasIncident(withNotices(notice(['A'])), 'B', 'D')).toBe(false)
+    expect(hasIncident(withNotices(notice(['E', 'F'])), 'B', 'D')).toBe(false)
+    expect(hasIncident(withNotices(notice(['C'], 'info')), 'B', 'D')).toBe(false)
+    expect(hasIncident(withNotices(notice(['E', 'F'], 'cancelled')), 'B', 'D')).toBe(false)
   })
 })
 
@@ -376,6 +402,7 @@ describe('notices', () => {
     expect(noticeKind('Fewer carriages', 'runs with 4 carriages instead of 8', 'general')).toBe('short')
     expect(noticeKind('Delay expected', 'other trains on the line are delayed', 'incident')).toBe('incident')
     expect(noticeKind('Ticket machines', 'out of order', 'general')).toBe('info')
+    expect(noticeKind('Normal speed: Kløfta–Gardermoen', 'Trains are running at normal speed again. You should expect delays.', 'incident')).toBe('info')
     expect(noticeKind('Line open: Moss–Vestby', 'The line has reopened. Trains that were cancelled now run as normal.', 'incident')).toBe('info')
   })
   it('prefers English, drops expired messages and dedupes by id', () => {

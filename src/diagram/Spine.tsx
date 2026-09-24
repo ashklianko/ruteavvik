@@ -18,6 +18,7 @@ interface Props {
   segments: Map<string, SegmentStat>
   observations: SegmentObservation[]
   minor: Set<string>
+  stops: Set<string> | null
   axisMax: AxisMax
   compact?: boolean
   now: number
@@ -158,7 +159,7 @@ function labelSlots(marks: Mark[]): Map<string, { dx: number; dy: number }> {
 }
 
 export function Spine(props: Props) {
-  const { from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, minor, axisMax, compact = false, now, ghostNow = now, selected, hovered, onSelect, onHover, ariaLabel } = props
+  const { from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, minor, stops, axisMax, compact = false, now, ghostNow = now, selected, hovered, onSelect, onHover, ariaLabel } = props
   const g = compact ? COMPACT_GEOM : NORMAL_GEOM
   const empty = !from || !to
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
@@ -286,8 +287,9 @@ export function Spine(props: Props) {
           if (row.kind === 'horizon') return null
           const label = row.kind === 'not-departed' ? STATE_WORDS.notDeparted : row.kind === 'further' ? 'further out' : row.station
           const isStation = row.kind === 'corridor' || row.kind === 'upstream'
+          const passed = isStation && stops !== null && !stops.has(row.station)
           return (
-            <g key={`row-${row.kind}-${'station' in row ? row.station : ''}`}>
+            <g key={`row-${row.kind}-${'station' in row ? row.station : ''}`} className={`station-row ${passed ? 'station-passed' : ''}`}>
               <line x1={g.SPINE_X - (row.minor ? 3 : 6)} y1={row.y} x2={g.SPINE_X + (row.minor ? 3 : 6)} y2={row.y} stroke="var(--color-spine)" strokeWidth={1} />
               <text x={labelX(row.y)} y={row.y + (row.minor ? 3.5 : 4)} textAnchor="end" fontSize={row.minor ? 11 : 13} fill={isStation && !row.minor ? 'var(--color-ink-muted)' : 'var(--color-ink-faint)'}>
                 {label}

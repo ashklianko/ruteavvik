@@ -44,7 +44,7 @@ const pick = (texts: RawText[] | undefined): string => {
 export function noticeKind(summary: string, description: string, reportType: string | null): NoticeKind {
   const head = summary.toLowerCase()
   const text = `${summary} ${description}`.toLowerCase()
-  if (/line open|reopen|åpnet|normal traffic|running normally|går som normalt|resumed/.test(head)) return 'info'
+  if (/line open|reopen|åpnet|normal traffic|running normally|normal speed|normal hastighet|går som normalt|resumed/.test(head)) return 'info'
   if (/cancel|innstilt/.test(head) || (/cancel|innstilt/.test(text) && !/no longer|not cancelled|ikke lenger/.test(text) && reportType === 'incident')) return 'cancelled'
   if (/fewer carriages|færre vogner|short train|carriages instead/.test(text)) return 'short'
   if (reportType === 'incident' || /delay|forsink|disrupt|buss|bus for train|replacement/.test(text)) return 'incident'

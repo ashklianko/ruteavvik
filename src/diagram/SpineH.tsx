@@ -17,6 +17,7 @@ interface Props {
   observations: SegmentObservation[]
   now: number
   minor: Set<string>
+  stops: Set<string> | null
   axisMax: AxisMax
   narrow?: boolean
   ghostNow?: number
@@ -31,7 +32,7 @@ const FULL = { HW: 1000, HH: 430, LEFT: 104, RIGHT: 30, BASE: 330, HALFY: 280 }
 const NARROW = { HW: 1000, HH: 560, LEFT: 104, RIGHT: 30, BASE: 450, HALFY: 400 }
 
 
-export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, ghostNow = now, minor, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
+export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, segments, observations, now, ghostNow = now, minor, stops, axisMax, narrow = false, ariaLabel, selected, hovered, onSelect, onHover }: Props) {
   const { HW, HH, LEFT, RIGHT, BASE, HALFY } = narrow ? NARROW : FULL
   const [hoverSegment, setHoverSegment] = useState<string | null>(null)
   const [openCluster, setOpenCluster] = useState<string | null>(null)
@@ -208,8 +209,9 @@ export function SpineH({ from, to, corridor, upstreamOrder, upstreamRows, list, 
           const label = row.kind === 'not-departed' ? STATE_WORDS.notDeparted : row.kind === 'further' ? 'further out' : row.station
           const isHorizon = row.kind === 'horizon'
           const isMinor = row.minor
+          const passed = (row.kind === 'corridor' || row.kind === 'upstream') && stops !== null && !stops.has(row.station)
           return (
-            <g key={`col-${row.kind}-${'station' in row ? row.station : ''}`}>
+            <g key={`col-${row.kind}-${'station' in row ? row.station : ''}`} className={`station-row ${passed ? 'station-passed' : ''}`}>
               <line x1={x} y1={BASE - (isMinor ? 3 : 6)} x2={x} y2={BASE + (isMinor ? 3 : 6)} stroke="var(--color-spine)" strokeWidth={1} />
               {isHorizon && <line x1={x} y1={yOfDelay(axisMax * 60) - 8} x2={x} y2={BASE + 6} stroke="var(--color-ink-muted)" strokeWidth={1} />}
               {(

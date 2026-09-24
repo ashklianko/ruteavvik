@@ -124,17 +124,22 @@ Entur carries the operator's own messages on a journey and its stops: cancellati
 incidents such as a failed switch or an expected delay, and general notes such as a short
 train. They are not measurements and are shown as what they are, labelled *Operator notice*,
 never mixed into the numbers. Each is classified from its text: *cancelled*, *incident*,
-*short* (fewer carriages) or *info*; expired ones are dropped.
+*short* (fewer carriages) or *info*; a notice that the line is open again or trains are back
+at normal speed is *info*; expired ones are dropped. A notice concerns a train's trip when it
+names a station on its stretch from `from` to `to`, or names none; notices elsewhere on a long
+route, a closure beyond `to` or trouble before the train reached the corridor, are not shown.
 
 - In the list and the map panel a train carries small tags after its route: a red ✕ for a
-  cancellation, an orange ! for an incident, a grey ½ *short train*. Only notices that name
-  `from`, `to`, the whole journey or a cancellation are shown; hover gives the full text.
-- The next-departure block adds a line under the sentence when the next train has a
-  cancellation or incident: the summary in bold and the operator's advice.
+  cancellation, an orange ! for an incident, a grey ½ *short train*, for the notices that
+  concern the trip; hover gives the full text.
+- The next-departure block adds a line under the sentence when the next or the selected
+  train has a cancellation or incident: the summary in bold and the operator's advice. Trains
+  cancelled at `from` before the next one are listed on their own line, *Cancelled: 14:42 L1*,
+  and a train under *Then* with a notice carries its ✕ or !.
 - The expanded detail lists every notice in full at the top.
 - On the map a train with a cancellation or incident gets an orange ring.
-- The station state is *disrupted* while any approaching train carries a cancellation or
-  incident, whatever the median says.
+- One troubled train does not colour the station: the chip keeps its grade and adds the
+  count beside it. Two or more make it *disrupted*, whatever the median says.
 
 ## Next departure
 
@@ -146,11 +151,12 @@ screens with the tail of a long sentence cut by an ellipsis.
 - The **chip** is a coloured dot and one word for the movement at `from`, from the median
   delay of the last five trains that actually left the station in the past hour, counting
   only the lines chosen in the filter when one is set: within a minute *running well*, to
-  three *small delays*, to eight *delays*, beyond that *disrupted*; a cancellation at `from`
-  in the past hour or the next half hour, or a cancellation or incident notice on an
-  approaching train, is *disrupted* regardless; fewer than three departures and no
-  cancellation *too few trains to say*. Hover or focus shows the five departures and the
-  median.
+  three *small delays*, to eight *delays*, beyond that *disrupted*. Trains cancelled at
+  `from` in the past hour or the next half hour and approaching trains with a cancellation or
+  incident notice for the trip are counted beside the word, *running well · 1 cancelled, 1
+  notice*; two or more such trains make it *disrupted* regardless. Fewer than three
+  departures and fewer than two such trains is *too few trains to say*. Hover or focus shows
+  the five departures, the median and the counts.
 - **Next HH:MM (in N min)**: when the next train will actually leave `from`, timetable plus
   its measured delay, and the minutes from now, rounded; *due* once that moment has passed
   without a recording. A train standing at the platform shows **Now** and no minutes. The
@@ -288,6 +294,9 @@ every other train. The arrival window is not drawn in the diagram; it lives in t
 the expanded row and the map panel as a sentence, where the sample size can be stated.
 Clicking a mark selects the train, expands its row and scrolls the list to
 it; clicking the background or pressing Escape clears the selection. Selection survives polls.
+While a train is selected, the stations it does not stop at, and the stops cancelled for it,
+fade to a third in every view: both diagrams, the time chart and the map. The rows keep their
+place, so nothing moves.
 
 ### Segments
 

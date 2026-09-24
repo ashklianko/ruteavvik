@@ -9,6 +9,7 @@ interface Props {
   from: string
   to: string
   rows: string[]
+  stops: Set<string> | null
   trains: Train[]
   now: number
   selected: string | null
@@ -37,7 +38,7 @@ interface Series {
   last: { x: number; y: number; delay: number } | null
 }
 
-export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect, onHover, scrub, onScrub, compact = false, ariaLabel }: Props) {
+export function Marey({ from, to, rows, stops, trains, now, selected, hovered, onSelect, onHover, scrub, onScrub, compact = false, ariaLabel }: Props) {
   const LABEL_W = compact ? 92 : 124
   const ROW = compact ? 26 : 36
   const TICK_MS = compact ? 30 * 60_000 : 15 * 60_000
@@ -131,8 +132,9 @@ export function Marey({ from, to, rows, trains, now, selected, hovered, onSelect
       {rows.map((s) => {
         const y = rowY.get(s)!
         const isFrom = s === from
+        const passed = stops !== null && !stops.has(s)
         return (
-          <g key={s}>
+          <g key={s} className={`station-row ${passed ? 'station-passed' : ''}`}>
             <line x1={LABEL_W - 4} y1={y} x2={MW - 16} y2={y} stroke={isFrom ? 'var(--color-ink-muted)' : 'var(--color-spine-dim)'} strokeWidth={isFrom ? 1 : 0.5} />
             <text x={LABEL_W - 12} y={y + 4} textAnchor="end" fontSize={compact ? (isFrom ? 12 : 11) : isFrom ? 14 : 13} fontWeight={isFrom ? 500 : 400} fill={isFrom ? 'var(--color-ink)' : 'var(--color-ink-muted)'}>
               {s}

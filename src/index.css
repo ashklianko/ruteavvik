@@ -266,7 +266,14 @@ body {
   stroke: var(--color-focus);
   stroke-opacity: 0.25;
 }
+.station-row {
+  transition: opacity 150ms ease-out;
+}
+.station-passed {
+  opacity: 0.3;
+}
 @media (prefers-reduced-motion: reduce) {
+  .station-row,
   .spine .mark,
   .spine .trail,
   .spine .ghost,
@@ -724,6 +731,9 @@ body {
   align-self: center;
   cursor: default;
   white-space: nowrap;
+}
+.mood-flag {
+  color: var(--color-late-3);
 }
 .mood-dot {
   width: 0.55rem;

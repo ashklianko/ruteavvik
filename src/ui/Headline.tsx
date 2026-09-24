@@ -1,6 +1,6 @@
 import type { ArrivalWindow, CorridorTrain, Headline as H, StationMood } from '../data/derive.ts'
 import { MoodChip } from './MoodChip.tsx'
-import { relevantNotices } from '../data/notices.ts'
+import { isDisruptive, relevantNotices } from '../data/notices.ts'
 import { CALM_S, indexOf } from '../data/derive.ts'
 import { delayWords, fmtTime, inWords, STATE_WORDS, windowWords } from '../format.ts'
 
@@ -9,6 +9,7 @@ interface Props {
   from: string | null
   to: string | null
   following: CorridorTrain[]
+  skipped?: CorridorTrain[]
   mood: StationMood | null
   lines?: string[]
   now: number
@@ -55,8 +56,38 @@ function status(ct: CorridorTrain): string | null {
   return delayWords(state.delay)
 }
 
-function ThenItem({ ct, from, onHover, onSelect }: { ct: CorridorTrain; from: string; onHover: Props['onHover']; onSelect: Props['onSelect'] }) {
+function disruption(ct: CorridorTrain, from: string, to: string) {
+  return relevantNotices(ct.train, from, to).find(isDisruptive) ?? null
+}
+
+function HeroNotice({ ct, from, to }: { ct: CorridorTrain; from: string; to: string }) {
+  const n = disruption(ct, from, to)
+  if (!n) return null
+  return (
+    <p className="hero-notice" title={`${n.summary}. ${n.description} ${n.advice}`.trim()}>
+      <strong>{n.summary}.</strong> {n.advice || n.description}
+    </p>
+  )
+}
+
+function Skipped({ trains, from }: { trains: CorridorTrain[]; from: string }) {
+  if (trains.length === 0) return null
+  return (
+    <p className="hero-notice">
+      <strong>Cancelled:</strong>
+      <span>
+        {trains.map((ct) => {
+          const t = scheduledAt(ct, from)
+          return `${t !== null ? fmtTime(t) : '—'} ${ct.train.line}`
+        }).join(', ')}
+      </span>
+    </p>
+  )
+}
+
+function ThenItem({ ct, from, to, onHover, onSelect }: { ct: CorridorTrain; from: string; to: string; onHover: Props['onHover']; onSelect: Props['onSelect'] }) {
   const t = heroTime(ct, from)
+  const n = disruption(ct, from, to)
   const s = ct.state
   const late = s.kind === 'measured' && Math.abs(s.delay) > CALM_S
   return (
@@ -77,6 +108,14 @@ function ThenItem({ ct, from, onHover, onSelect }: { ct: CorridorTrain; from: st
         </span>
       )}
       {s.kind !== 'measured' && <span> timetable</span>}
+      {n && (
+        <span className={`notice-${n.kind}`} title={n.summary}>
+          {' '}
+          <span className="notice-icon" aria-label={n.summary}>
+            {n.kind === 'cancelled' ? '✕' : '!'}
+          </span>
+        </span>
+      )}
     </button>
   )
 }
@@ -86,7 +125,7 @@ function SelectedHero({ ct, from, to, window, mood, lines, now, onHover, onSelec
   const standing = atPlatform(ct)
   const gone = ct.group === 'gone'
   const arrival = arrivalAt(ct, to, window)
-  const late = status(ct)
+  const late = ct.cancelled ? 'cancelled' : status(ct)
   const measured = ct.state.kind === 'measured'
   const shifted = ct.state.kind === 'measured' && Math.abs(ct.state.delay) > 60
   const sched = scheduledAt(ct, from)
@@ -138,11 +177,12 @@ function SelectedHero({ ct, from, to, window, mood, lines, now, onHover, onSelec
           </button>
         )}
       </p>
+      <HeroNotice ct={ct} from={from} to={to} />
     </div>
   )
 }
 
-export function Headline({ h, from, to, following, mood, lines = [], now, selected = null, window = null, onHover, onSelect, onClear }: Props) {
+export function Headline({ h, from, to, following, skipped = [], mood, lines = [], now, selected = null, window = null, onHover, onSelect, onClear }: Props) {
   if (!from || !to) return <p className="headline">Pick where you are and where you are going.</p>
   if (selected) return <SelectedHero ct={selected} from={from} to={to} window={window} mood={mood} lines={lines} now={now} onHover={onHover} onSelect={onSelect} onClear={onClear} />
   if (h.kind === 'none') return <p className="headline">Nothing running from {from} to {to} right now.</p>
@@ -180,21 +220,15 @@ export function Headline({ h, from, to, following, mood, lines = [], now, select
           </span>
         </button>
       </div>
-      {(() => {
-        const n = relevantNotices(next.train.notices, from, to).find((x) => x.kind === 'cancelled' || x.kind === 'incident')
-        return n ? (
-          <p className="hero-notice" title={`${n.summary}. ${n.description} ${n.advice}`.trim()}>
-            <strong>{n.summary}.</strong> {n.advice || n.description}
-          </p>
-        ) : null
-      })()}
+      <Skipped trains={skipped} from={from} />
+      <HeroNotice ct={next} from={from} to={to} />
       {following.length > 0 && (
         <p className="hero-then">
           Then{' '}
           {following.map((ct, i) => (
             <span key={ct.train.id}>
               {i > 0 && ', '}
-              <ThenItem ct={ct} from={from} onHover={onHover} onSelect={onSelect} />
+              <ThenItem ct={ct} from={from} to={to} onHover={onHover} onSelect={onSelect} />
             </span>
           ))}
         </p>

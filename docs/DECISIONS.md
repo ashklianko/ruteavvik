@@ -390,3 +390,23 @@ presenter's control, not a commuter's.
 
 **Cost.** Two megabytes of JSON in the repository and on Pages, a generator script to keep
 in step with the raw types, and a control every visitor can see.
+
+## 26 · One troubled train stays with the train
+
+The station chip turned *disrupted* whenever any approaching train carried a cancellation or
+incident notice. On a quiet afternoon at Oslo S with a median of 49 seconds it was red
+because one RE11 carried two notices: *Normal speed: Kløfta–Gardermoen*, a recovery message
+from before the corridor, and a closure at Tønsberg–Stokke, beyond Sandvika. Three changes.
+A notice concerns a train only when it names a station on its stretch from `from` to `to`, or
+names none, in the list, the map, the headline and the chip alike; recovery messages are
+*info*. One troubled train is shown with that train, as a *Cancelled* line or a mark in the
+headline and a tag in the list, and beside the chip as a count, not in the chip's colour.
+Two or more troubled trains still make the station *disrupted*, which keeps a real signal
+failure red.
+
+Selecting a train fades the stations it passes without stopping in every view. On a pair
+served by regional and local trains, the local stops are noise when reading an express.
+
+**Cost.** A single cancellation no longer turns the chip red; a reader looking only at the
+colour misses it until the next train is the one affected. A notice that names only stations
+outside the stretch but still matters, a closure the train is diverted around, is dropped.

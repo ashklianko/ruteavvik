@@ -74,7 +74,7 @@ function Row({ ct, from, to, windowFor, selected, hovered, onSelect, onHover }: 
         </span>
         <span className="state">
           {stateText(ct)}
-          <NoticeTags notices={relevantNotices(ct.train.notices, from, to)} />
+          <NoticeTags notices={relevantNotices(ct.train, from, to)} />
         </span>
       </button>
       {isSel && to && <TrainDetail ct={ct} from={from ?? undefined} to={to} window={windowFor(ct)} />}
