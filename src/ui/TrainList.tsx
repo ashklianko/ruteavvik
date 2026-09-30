@@ -5,6 +5,7 @@ import { NoticeTags } from './Notices.tsx'
 import { TrainDetail } from './TrainDetail.tsx'
 import { lineColour } from '../diagram/palette.ts'
 import { delayWords, fmtTime, signed, STATE_WORDS, stopsAway } from '../format.ts'
+import { ListSkeleton } from './Skeleton.tsx'
 
 interface Props {
   list: CorridorTrain[]
@@ -16,6 +17,8 @@ interface Props {
   hovered: string | null
   onSelect: (id: string | null) => void
   onHover: (id: string | null) => void
+  onMore?: () => void
+  loadingMore?: boolean
 }
 
 function stateText(ct: CorridorTrain): React.ReactNode {
@@ -82,7 +85,7 @@ function Row({ ct, from, to, windowFor, selected, hovered, onSelect, onHover }: 
   )
 }
 
-export function TrainList({ list, from, to, later, windowFor, selected, hovered, onSelect, onHover }: Props) {
+export function TrainList({ list, from, to, later, windowFor, selected, hovered, onSelect, onHover, onMore, loadingMore = false }: Props) {
   const approaching = list.filter((c) => c.group === 'approaching')
   const ahead = list.filter((c) => c.group === 'ahead')
   if (list.length === 0 && later.laterCount === 0) return null
@@ -93,11 +96,16 @@ export function TrainList({ list, from, to, later, windowFor, selected, hovered,
           <Row key={ct.train.id} ct={ct} from={from} to={to} windowFor={windowFor} selected={selected} hovered={hovered} onSelect={onSelect} onHover={onHover} />
         ))}
       </ol>
-      {later.laterCount > 0 && later.laterUntil !== null && (
-        <p className="text-sm text-ink-faint">
-          {later.laterCount === 1 ? 'One more train' : `${later.laterCount} more trains`} by timetable until{' '}
-          <span className="num">{fmtTime(later.laterUntil)}</span>, not running yet. They appear here once measured.
-        </p>
+      {loadingMore ? (
+        <ListSkeleton rows={2} />
+      ) : (
+        onMore && (
+          <p className="text-sm">
+            <button type="button" className="then-item" onClick={onMore}>
+              <span className="link-time">Show more</span>
+            </button>
+          </p>
+        )
       )}
       {ahead.length > 0 && (
         <>

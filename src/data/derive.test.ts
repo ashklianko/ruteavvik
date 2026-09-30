@@ -277,12 +277,25 @@ describe('visibleTrains', () => {
     late.calls = late.calls.map((c) => shift(c, 50 * 60_000))
     const later = train('x', [null, null, null, null, null, null])
     later.calls = later.calls.map((c) => shift(c, 70 * 60_000))
-    const list = corridorTrains([measuredFar, soon, late, later], 'C', 'E')
+    const soon2 = train('s2', [null, null, null, null, null, null])
+    soon2.calls = soon2.calls.map((c) => shift(c, 20 * 60_000))
+    const list = corridorTrains([measuredFar, soon, soon2, late, later], 'C', 'E')
     const now = min(10)
-    const v = visibleTrains(list, now)
-    expect(v.shown.map((c) => c.train.id)).toEqual(['s', 'm'])
+    const v = visibleTrains(list, now, 3)
+    expect(v.shown.map((c) => c.train.id)).toEqual(['s', 's2', 'm'])
     expect(v.laterCount).toBe(2)
-    expect(v.laterUntil).toBe(later.calls[2].aimedArrival)
+  })
+  it('reaches past the horizon until enough trains are coming, in timetable order', () => {
+    const at = (id: string, m: number, cancelled = false) => {
+      const t = train(id, [null, null, null, null, null, null])
+      t.calls = t.calls.map((c) => ({ ...shift(c, m * 60_000), cancelled: c.station === 'C' ? cancelled : c.cancelled }))
+      return t
+    }
+    const list = corridorTrains([at('a', 10), at('b', 50), at('c', 70, true), at('d', 90), at('e', 120)], 'C', 'E')
+    const v = visibleTrains(list, min(10), 3)
+    expect(v.shown.map((c) => c.train.id)).toEqual(['a', 'b', 'c', 'd'])
+    expect(v.laterCount).toBe(1)
+    expect(visibleTrains(list, min(10)).laterCount).toBe(0)
   })
   it('drops an unmeasured train whose timetable departure is well in the past', () => {
     const ghost = train('g', [null, null, null, null, null, null])

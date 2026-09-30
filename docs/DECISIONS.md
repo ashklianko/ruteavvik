@@ -410,3 +410,19 @@ served by regional and local trains, the local stops are noise when reading an e
 **Cost.** A single cancellation no longer turns the chip red; a reader looking only at the
 colour misses it until the next train is the one affected. A notice that names only stations
 outside the stretch but still matters, a closure the train is diverted around, is dropped.
+
+## 27 · Always five trains coming, and Show more
+
+Unmeasured trains were shown only when due within 30 minutes, and the poll asked Entur for an
+hour ahead. On Slependen to Oslo S in the autumn holiday, or with one line chosen in the
+filter, that left a single train in the list and nothing under *Then*. The list now reaches
+past the 30 minutes, in timetable order, until five uncancelled trains are coming, and the
+poll asks for the next hour, then the one after, up to six hours ahead, while it holds fewer
+than five for the chosen lines. *Show more* raises the five by five at a time, for the pair
+and lines in view. Beyond the first window only journeys of the chosen lines are fetched,
+and the lines and the wanted count join the query key.
+
+**Cost.** A pair or line with little service costs up to five more requests for stop calls
+per poll, plus the journeys found; changing the line filter or pressing *Show more*
+refetches. A train two hours out
+is shown by timetable in a list that otherwise speaks of the next half hour.

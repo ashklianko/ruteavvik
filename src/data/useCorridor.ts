@@ -24,11 +24,12 @@ async function loadSnapshot(name: string): Promise<CorridorSnapshot> {
   return (await res.json()) as CorridorSnapshot
 }
 
-export function useCorridor(from: Station | null, to: string | null) {
+export function useCorridor(from: Station | null, to: string | null, lines: string[] = [], want?: number) {
   const snapshot = snapshotParam()
+  const key = [...lines].sort()
   return useQuery({
-    queryKey: ['corridor', snapshot ?? from?.id, snapshot ?? to],
-    queryFn: () => (snapshot ? loadSnapshot(snapshot) : fetchCorridor(from!, to!)),
+    queryKey: ['corridor', snapshot ?? from?.id, snapshot ?? to, snapshot ? [] : key, snapshot ? null : (want ?? null)],
+    queryFn: () => (snapshot ? loadSnapshot(snapshot) : fetchCorridor(from!, to!, new Date(), key, want)),
     enabled: Boolean(snapshot || (from && to)),
     refetchInterval: snapshot ? false : POLL_MS,
     refetchIntervalInBackground: false,

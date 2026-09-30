@@ -389,29 +389,31 @@ export function pickUpstreamRows(order: string[], trains: Train[], from: string,
 }
 
 export const TIMETABLE_HORIZON_MS = 30 * 60_000
+export const MIN_UPCOMING = 5
 
 export interface Visible {
   shown: CorridorTrain[]
   laterCount: number
-  laterUntil: number | null
 }
 
 export const STALE_TIMETABLE_MS = 5 * 60_000
 
-export function visibleTrains(list: CorridorTrain[], now: number, horizon = TIMETABLE_HORIZON_MS): Visible {
+export function visibleTrains(list: CorridorTrain[], now: number, want = MIN_UPCOMING, horizon = TIMETABLE_HORIZON_MS): Visible {
   const shown: CorridorTrain[] = []
-  let laterCount = 0
-  let laterUntil: number | null = null
+  const beyond: CorridorTrain[] = []
   for (const c of list) {
     if (c.state.kind !== 'measured' && c.arrivesFrom !== null && c.arrivesFrom < now - STALE_TIMETABLE_MS) continue
-    if (c.state.kind === 'measured' || c.arrivesFrom === null || c.arrivesFrom <= now + horizon) {
-      shown.push(c)
-      continue
-    }
-    laterCount++
-    laterUntil = Math.max(laterUntil ?? 0, c.arrivesFrom)
+    if (c.state.kind === 'measured' || c.arrivesFrom === null || c.arrivesFrom <= now + horizon) shown.push(c)
+    else beyond.push(c)
   }
-  return { shown, laterCount, laterUntil }
+  const kept = new Set(shown)
+  let missing = want - shown.filter((c) => c.group === 'approaching' && !c.cancelled).length
+  while (missing > 0 && beyond.length > 0) {
+    const c = beyond.shift()!
+    kept.add(c)
+    if (!c.cancelled) missing--
+  }
+  return { shown: list.filter((c) => kept.has(c)), laterCount: beyond.length }
 }
 
 export function trainsAsOf(trains: Train[], at: number): Train[] {

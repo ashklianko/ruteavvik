@@ -86,8 +86,11 @@ the bounding box returns multimodal parents, journeys reference rail children.
 
 Per poll:
 
-1. `estimatedCalls` at `from`, rail only, `startTime = now − 60 min`, `timeRange = 150 min`,
-   with each call's service `date`.
+1. `estimatedCalls` at `from`, rail only, `startTime = now − 90 min`, `timeRange = 150 min`,
+   with each call's service `date`. While fewer than five uncancelled trains of the chosen
+   lines are still to leave `from` towards `to`, or as many as *Show more* has asked for, the
+   next hour is asked for and its journeys of those lines fetched, up to six hours ahead: a
+   quiet holiday pair or a single chosen line still has a next train and several after it.
 2. For every distinct journey and date, the journey's full `estimatedCalls(date:)` with each
    stop's name, coordinates and platform, batched 25 per request. The date matters: after
    midnight an undated query returns tomorrow's empty run.
@@ -335,8 +338,11 @@ colour, the chip *running well*. This must look finished, not empty.
 ## List
 
 Beside or beneath the diagram. One row per train, ordered by measured arrival at `from`,
-unmeasured ones by timetable. Unmeasured trains are shown only when due within 30 minutes;
-the rest are summed up in one line, *8 more trains by timetable until 15:01, not running yet*.
+unmeasured ones by timetable. Unmeasured trains are shown only when due within 30 minutes,
+or further out until five uncancelled trains are coming. Under them, *Show more* adds five
+more coming trains each time, fetching further hours when the loaded ones run out; while
+those load, two skeleton rows stand in its place. It is hidden once every loaded train is
+shown and the poll has reached six hours ahead or found fewer trains than asked for. Changing the pair or the lines goes back to five.
 
 Each row: the departure from `from` as it will actually happen, timetable plus measured
 delay, with the timetable time struck through beneath it when they differ by more than a

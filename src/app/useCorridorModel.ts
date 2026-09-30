@@ -12,6 +12,7 @@ import {
   servesCorridor,
   hasIncident,
   indexOf,
+  MIN_UPCOMING,
   stationMood,
   trainsAsOf,
   upstreamOrder,
@@ -32,9 +33,10 @@ interface Input {
   wallClock: number
   scrub: number | null
   at?: number | null
+  want?: number
 }
 
-export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wallClock, scrub, at = null }: Input) {
+export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wallClock, scrub, at = null, want = MIN_UPCOMING }: Input) {
   const fromName = snapshot ? (snap?.from ?? pairFrom) : pairFrom
   const toName = snapshot ? (snap?.to ?? pairTo) : pairTo
   const coarseClock = Math.floor(wallClock / 10_000) * 10_000
@@ -48,7 +50,7 @@ export function useCorridorModel({ snap, snapshot, pairFrom, pairTo, lines, wall
   const fullList = useMemo(() => (fromName && toName ? corridorTrains(trains, fromName, toName) : []), [trains, fromName, toName])
   const available = useMemo(() => [...new Set(fullList.map((c) => c.train.line))].sort(), [fullList])
   const filtered = useMemo(() => (lines.length ? fullList.filter((c) => lines.includes(c.train.line)) : fullList), [fullList, lines])
-  const visible = useMemo(() => visibleTrains(filtered, now), [filtered, now])
+  const visible = useMemo(() => visibleTrains(filtered, now, want), [filtered, now, want])
   const list = visible.shown
   const corridorRows = useMemo(() => (fromName && toName ? corridorStations(filtered, fromName, toName) : []), [filtered, fromName, toName])
   const relevant = useMemo(() => filtered.map((c) => c.train), [filtered])

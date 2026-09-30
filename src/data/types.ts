@@ -78,6 +78,7 @@ export interface RawPattern {
 export interface CorridorSnapshot {
   recordedAt: string
   synthetic?: string
+  exhausted?: boolean
   from: string
   to: string
   stopPlaceId: string

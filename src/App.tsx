@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { atParam, POLL_MS, snapshotParam, useCorridor, useNow, useStations } from './data/useCorridor.ts'
 import { atClock } from './data/clock.ts'
+import { MIN_UPCOMING } from './data/derive.ts'
 import { Scenes } from './ui/Scenes.tsx'
 import { Debug } from './debug/Debug.tsx'
 import { Marey } from './diagram/Marey.tsx'
@@ -99,7 +100,10 @@ function Corridor({ view }: { view: View }) {
   const stations = useStations()
   const snapshot = snapshotParam()
   const from = stations.data?.find((s) => s.name === pair.from) ?? null
-  const corridor = useCorridor(from, pair.to)
+  const pairKey = `${pair.from}|${pair.to}|${[...pair.lines].sort().join(',')}`
+  const [more, setMore] = useState({ key: pairKey, want: MIN_UPCOMING })
+  const want = more.key === pairKey ? more.want : MIN_UPCOMING
+  const corridor = useCorridor(from, pair.to, pair.lines, want)
   const wallClock = useNow()
   const [selected, setSelected] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -139,7 +143,7 @@ function Corridor({ view }: { view: View }) {
   const snap = corridor.data
   const atStr = atParam()
   const at = snapshot !== null && snap && atStr ? atClock(snap.recordedAt, atStr) : null
-  const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub, at })
+  const m = useCorridorModel({ snap, snapshot: snapshot !== null, pairFrom: pair.from, pairTo: pair.to, lines: pair.lines, wallClock, scrub, at, want })
   const { fromName, toName, liveNow, now, ghostNow, list, visible, available, corridorRows, relevant, servingAll, upOrder, upRows, observations, segments, mareyRows, minorStations, headline, axisMax, mood, following, skipped, windowFor, headlineWindow, lateCount, ariaLabel } = m
   const stops = useMemo(() => {
     const t = selected ? servingAll.find((x) => x.id === selected) : undefined
@@ -168,7 +172,11 @@ function Corridor({ view }: { view: View }) {
     ariaLabel,
   }
   const selectedTrain = selected ? (list.find((c) => c.train.id === selected) ?? null) : null
-  const listProps = { list, from: fromName, to: toName, later: visible, windowFor, selected, hovered, onSelect: setSelected, onHover: setHovered }
+  const coming = list.filter((c) => c.group === 'approaching' && !c.cancelled).length
+  const loadingMore = corridor.isFetching && corridor.isPlaceholderData
+  const canMore = visible.laterCount > 0 || (snapshot === null && coming >= want && !snap?.exhausted)
+  const onMore = canMore ? () => setMore({ key: pairKey, want: want + MIN_UPCOMING }) : undefined
+  const listProps = { list, from: fromName, to: toName, later: visible, windowFor, selected, hovered, onSelect: setSelected, onHover: setHovered, onMore, loadingMore }
   const captionProps = { to: toName, window: headlineWindow, lateCount, loaded: Boolean(corridor.dataUpdatedAt), fetching: corridor.isFetching, stationsFailed: stations.isError }
   const loading = Boolean(fromName && toName) && !snap && !corridor.isError
   const hintText = orientation === 'wide' ? 'On the line means on time. Higher means later, by the minutes on the scale. Tap a train to follow it.' : 'On the line means on time. Drifting right means late, by the minutes on the scale. Tap a train to follow it.'
